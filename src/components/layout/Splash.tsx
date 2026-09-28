@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { CLUB_NAME } from "@/lib/config";
 import { SPLASH_DONE_EVENT, SPLASH_NEXT_PATH, SPLASH_PATH } from "@/lib/splash";
 
@@ -15,14 +15,31 @@ const OPEN_MS = 550;
 
 /**
  * 킥오프 스플래시. 레이아웃(AppShell)에 있어서 "/" → "/matches"로 페이지가 바뀌는 동안에도 화면을 덮고 있다.
- * 하프라인 → 센터서클 → 엠블럼 착지 + 금색 링 → (그 사이 /matches로 이동) → 경기장이 갈라지며 경기 화면이 드러난다.
- * 표시 여부는 <head> 인라인 스크립트(SPLASH_INIT_SCRIPT)가 첫 페인트 전에 정한다.
+ * 처음 "/"로 들어왔을 때뿐 아니라, 앱 안에서 "/"로 올 때(헤더 로고)마다 처음부터 다시 돈다.
  */
 export function Splash() {
   const pathname = usePathname();
+  // "/"에 도착할 때마다 번호를 올려 연출을 새로 마운트한다(애니메이션이 처음부터 다시 돈다).
+  // 이전 경로와 비교해 렌더 중에 갱신하는 방식이라 effect 없이 한 번에 반영된다.
+  const [prevPath, setPrevPath] = useState(pathname);
+  const [runId, setRunId] = useState(pathname === SPLASH_PATH ? 1 : 0);
+  if (pathname !== prevPath) {
+    setPrevPath(pathname);
+    if (pathname === SPLASH_PATH) setRunId((id) => id + 1);
+  }
+
+  if (runId === 0) return null;
+  return <SplashRun key={runId} />;
+}
+
+/**
+ * 연출 한 번.
+ * 하프라인 → 센터서클 → 엠블럼 착지 + 금색 링 → (그 사이 /matches로 이동) → 경기장이 갈라지며 경기 화면이 드러난다.
+ */
+function SplashRun() {
+  const pathname = usePathname();
   const router = useRouter();
-  // 처음 들어온 주소가 "/"일 때만 그린다. 이후 주소가 바뀌어도 연출이 끝날 때까지 유지.
-  const [active, setActive] = useState(() => pathname === SPLASH_PATH);
+  const [done, setDone] = useState(false);
   const [drawn, setDrawn] = useState(false);
   const [skipped, setSkipped] = useState(false);
   const navigated = useRef(false);
@@ -33,9 +50,16 @@ export function Splash() {
     router.replace(SPLASH_NEXT_PATH);
   }, [router]);
 
-  // 연출 타이머. 동작 줄이기 등으로 꺼져 있으면 곧장 /matches로.
+  // 첫 페인트 전에 보여 줄지 정한다. 처음 접속이면 <head> 스크립트가 이미 정했고,
+  // 앱 안에서 "/"로 온 경우엔 이전 연출이 남긴 data-splash="off"를 여기서 걷어 낸다.
+  useLayoutEffect(() => {
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduced) document.documentElement.setAttribute("data-splash", "off");
+    else document.documentElement.removeAttribute("data-splash");
+  }, []);
+
+  // 연출 타이머. 동작 줄이기 설정이면 곧장 /matches로.
   useEffect(() => {
-    if (!active) return;
     router.prefetch(SPLASH_NEXT_PATH);
     if (document.documentElement.getAttribute("data-splash") === "off") {
       goNext();
@@ -52,28 +76,26 @@ export function Splash() {
       window.clearTimeout(drawnTimer);
       window.removeEventListener("keydown", onKey);
     };
-    // active는 처음 한 번만 정해지므로 마운트 때만 돈다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [router, goNext]);
 
   useEffect(() => {
     if (skipped) goNext();
   }, [skipped, goNext]);
 
   // 경기 화면으로 넘어갔고 (그리기가 끝났거나 건너뛰었으면) 갈라지기 시작한다.
-  const opening = active && pathname !== SPLASH_PATH && (drawn || skipped);
+  const opening = !done && pathname !== SPLASH_PATH && (drawn || skipped);
 
   useEffect(() => {
     if (!opening) return;
     const timer = window.setTimeout(() => {
       document.documentElement.setAttribute("data-splash", "off");
       window.dispatchEvent(new Event(SPLASH_DONE_EVENT));
-      setActive(false);
+      setDone(true);
     }, OPEN_MS);
     return () => window.clearTimeout(timer);
   }, [opening]);
 
-  if (!active) return null;
+  if (done) return null;
 
   return (
     <div

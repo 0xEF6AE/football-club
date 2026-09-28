@@ -16,7 +16,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-20 border-b border-line bg-bg/90 backdrop-blur supports-backdrop-filter:bg-bg/75">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4">
           <Link
-            href="/matches"
+            href="/"
             className="flex min-w-0 items-center gap-2.5 rounded-md font-semibold tracking-tight outline-none focus-visible:ring-2 focus-visible:ring-pitch/40"
           >
             {/* 모임 엠블럼. 링 바깥이 투명한 원형 PNG라 라이트·다크 어디서나 그대로 얹힌다 */}
