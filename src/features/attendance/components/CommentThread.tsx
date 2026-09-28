@@ -20,6 +20,16 @@ const STATUS_PILL: Record<AttendanceStatus, string> = {
   maybe: "bg-amber/20 text-fg",
 };
 
+/** 투표 칸에서 입력한 내 PIN과, 서버 응답에 따라 PIN을 기억하거나 잊는 콜백. */
+export type PinCredential = {
+  /** 요청에 실을 PIN. 관리자라 필요 없으면 undefined */
+  pin: string | undefined;
+  /** 지금 요청을 보낼 수 있는지 (PIN 4자리가 채워졌거나 관리자) */
+  ready: boolean;
+  accept: () => void;
+  reject: (error: unknown) => void;
+};
+
 type CommentThreadProps = {
   matchId: string;
   /** 투표 칸에서 고른 내 선수 id. 없으면 댓글을 쓸 수 없다. */
@@ -27,13 +37,14 @@ type CommentThreadProps = {
   myName: string | null;
   /** 선수 id → 현재 참석 상태. 댓글 옆에 작은 표시로 붙인다. */
   statusOf: ReadonlyMap<string, AttendanceStatus>;
+  credential: PinCredential;
 };
 
 /**
  * 참석 투표 아래 댓글. "왜 불참인지, 왜 보류인지" 남기는 곳이라 이름을 밝히고 쓴다.
- * 투표가 마감된 뒤에도 남길 수 있다. 삭제는 본인(같은 이름)이나 관리자만.
+ * 투표가 마감된 뒤에도 남길 수 있다. 쓰기·삭제는 그 선수의 PIN이 맞아야 하고, 관리자는 PIN 없이 지울 수 있다.
  */
-export function CommentThread({ matchId, me, myName, statusOf }: CommentThreadProps) {
+export function CommentThread({ matchId, me, myName, statusOf, credential }: CommentThreadProps) {
   const comments = useComments(matchId);
   const add = useAddComment(matchId);
   const remove = useRemoveComment(matchId);
@@ -45,7 +56,7 @@ export function CommentThread({ matchId, me, myName, statusOf }: CommentThreadPr
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const { data, errors: fieldErrors } = validate(commentInputSchema, { playerId: me, content });
+    const { data, errors: fieldErrors } = validate(commentInputSchema, { playerId: me, content, pin: credential.pin });
     if (fieldErrors) {
       setErrors(fieldErrors);
       return;
@@ -53,14 +64,17 @@ export function CommentThread({ matchId, me, myName, statusOf }: CommentThreadPr
     setErrors({});
     try {
       await add.mutateAsync({ matchId, input: data });
+      credential.accept();
       setContent("");
     } catch (error) {
+      credential.reject(error);
       setErrors(errorsFromApi(error));
     }
   };
 
   const items = comments.data ?? [];
-  const message = errors.content ?? errors.playerId ?? errors[FORM_ERROR_KEY];
+  const canWrite = me !== "" && credential.ready;
+  const message = errors.content ?? errors.pin ?? errors.playerId ?? errors[FORM_ERROR_KEY];
 
   return (
     <div className="flex flex-col gap-3">
@@ -83,7 +97,7 @@ export function CommentThread({ matchId, me, myName, statusOf }: CommentThreadPr
         <ul className="divide-y divide-line">
           {items.map((comment) => {
             const status = statusOf.get(comment.playerId);
-            const mine = me !== "" && comment.playerId === me;
+            const mine = canWrite && comment.playerId === me;
             return (
               <li key={comment.id} className="flex items-start gap-2 py-2.5">
                 <div className="min-w-0 flex-1">
@@ -120,10 +134,16 @@ export function CommentThread({ matchId, me, myName, statusOf }: CommentThreadPr
           aria-label="댓글 내용"
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          placeholder={me ? "예: 회사 야근이라 불참이요 / 토요일 저녁에 확정할게요" : "위에서 내 이름을 고르면 댓글을 남길 수 있어요"}
+          placeholder={
+            !me
+              ? "위에서 내 이름을 고르면 댓글을 남길 수 있어요"
+              : !credential.ready
+                ? "위에서 PIN 4자리를 넣으면 댓글을 남길 수 있어요"
+                : "예: 회사 야근이라 불참이요 / 토요일 저녁에 확정할게요"
+          }
           rows={2}
           maxLength={300}
-          disabled={!me}
+          disabled={!canWrite}
           invalid={!!errors.content}
           className="min-h-0 bg-surface"
         />
@@ -131,7 +151,7 @@ export function CommentThread({ matchId, me, myName, statusOf }: CommentThreadPr
           <p className={cn("text-xs", message ? "text-danger" : "text-muted")} role={message ? "alert" : undefined}>
             {message ?? (myName ? `${myName} 이름으로 남겨져요` : "이름을 고르면 남길 수 있어요")}
           </p>
-          <Button type="submit" size="sm" pending={add.isPending} disabled={!me}>
+          <Button type="submit" size="sm" pending={add.isPending} disabled={!canWrite}>
             남기기
           </Button>
         </div>
@@ -148,8 +168,14 @@ export function CommentThread({ matchId, me, myName, statusOf }: CommentThreadPr
         onConfirm={() => {
           if (deleting) {
             remove.mutate(
-              { matchId, commentId: deleting.id, playerId: me || null },
-              { onSuccess: () => setDeleting(null) },
+              { matchId, commentId: deleting.id, playerId: me || null, pin: credential.pin },
+              {
+                onSuccess: () => {
+                  credential.accept();
+                  setDeleting(null);
+                },
+                onError: credential.reject,
+              },
             );
           }
         }}

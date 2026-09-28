@@ -5,7 +5,7 @@ import { isAdminRequest, isProtected } from "@/server/admin";
 import { listAttendance, removeAttendance, setAttendance } from "@/server/attendance";
 import { HttpError, json, noContent, notFound, parseBody, withErrorHandling, type IdContext } from "@/server/http";
 import { getMatch } from "@/server/matches";
-import { getPlayer } from "@/server/players";
+import { authorizePlayer } from "@/server/pin";
 
 export const GET = withErrorHandling(async (_request, { params }: IdContext) => {
   const { id } = await params;
@@ -24,19 +24,20 @@ async function assertVoteOpen(request: NextRequest, matchId: string) {
   if (isVoteClosed(match) && !adminOverride) throw new HttpError(403, "참석 투표가 마감됐어요");
 }
 
-/** 참석 응답은 모임원 누구나 (관리자 확인 없음). 같은 선수의 응답은 덮어쓴다. */
+/** 참석 응답. 그 선수의 PIN이 맞아야 한다 (관리자는 PIN 없이). 같은 선수의 응답은 덮어쓴다. */
 export const PUT = withErrorHandling(async (request, { params }: IdContext) => {
   const { id } = await params;
-  const input = await parseBody(request, attendanceInputSchema);
+  const { pin, ...input } = await parseBody(request, attendanceInputSchema);
   await assertVoteOpen(request, id);
-  if (!(await getPlayer(input.playerId))) throw notFound("선수를 찾을 수 없습니다");
+  await authorizePlayer(request, input.playerId, pin);
   return json(await setAttendance(id, input));
 });
 
 export const DELETE = withErrorHandling(async (request, { params }: IdContext) => {
   const { id } = await params;
-  const { playerId } = await parseBody(request, attendanceRemoveSchema);
+  const { playerId, pin } = await parseBody(request, attendanceRemoveSchema);
   await assertVoteOpen(request, id);
+  await authorizePlayer(request, playerId, pin);
   if (!(await removeAttendance(id, playerId))) throw notFound("응답이 없습니다");
   return noContent();
 });

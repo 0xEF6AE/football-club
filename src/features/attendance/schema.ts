@@ -1,4 +1,8 @@
 import { z } from "zod";
+import { playerPinSchema } from "@/features/players/schema";
+
+/** 선수 본인 확인용 PIN. 관리자는 없이 보낼 수 있어서 선택값이고, 필요 여부는 서버가 판단한다. */
+const pin = playerPinSchema.optional();
 
 /** 표시 순서. "maybe"는 DB 값이라 그대로 두고 화면에는 "보류"로 보여 준다. */
 export const ATTENDANCE_STATUSES = ["yes", "no", "maybe"] as const;
@@ -17,14 +21,16 @@ export const ATTENDANCE_TONE: Record<AttendanceStatus, "pitch" | "amber" | "neut
   maybe: "amber",
 };
 
-/** 응답은 선수 이름을 고르는 방식(신뢰 기반). 누가 눌렀는지는 따로 확인하지 않는다. */
+/** 응답은 이름을 고르고, 그 선수의 PIN으로 본인임을 확인한다 (처음이면 그 PIN으로 정해진다). */
 export const attendanceInputSchema = z.object({
   playerId: z.string().min(1, "이름을 골라 주세요"),
   status: z.enum(ATTENDANCE_STATUSES),
+  pin,
 });
 
 export const attendanceRemoveSchema = z.object({
   playerId: z.string().min(1, "이름을 골라 주세요"),
+  pin,
 });
 
 export type AttendanceInput = z.infer<typeof attendanceInputSchema>;
@@ -41,11 +47,13 @@ export type Attendance = {
 export const commentInputSchema = z.object({
   playerId: z.string().min(1, "이름을 골라 주세요"),
   content: z.string().trim().min(1, "내용을 입력해 주세요").max(300, "300자까지 적을 수 있어요"),
+  pin,
 });
 
-/** 삭제는 관리자이거나, 본인 이름으로 쓴 댓글일 때만 (신뢰 기반). */
+/** 삭제는 관리자이거나, 본인 이름으로 쓴 댓글을 그 선수의 PIN과 함께 요청할 때만. */
 export const commentRemoveSchema = z.object({
   playerId: z.string().nullable(),
+  pin,
 });
 
 export type CommentInput = z.infer<typeof commentInputSchema>;

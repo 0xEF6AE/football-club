@@ -57,6 +57,7 @@ scripts/make-icons.mjs  엠블럼 PNG 하나로 public/logo.png, src/app/icon.pn
 - **페이지는 Server Component, 상태·훅이 필요한 곳만 `"use client"`.** 페이지에서 데이터를 미리 가져오지 않고 클라이언트 훅이 가져온다 (로딩·오류·빈 상태는 컴포넌트 안에서 처리).
 - **익명 피드백.** 작성자를 알 수 있는 정보(IP, UA, 쿠키, 세션)는 받지도 저장하지도 않는다. 이 규칙을 깨는 기능은 만들지 않는다.
 - **참석 투표.** 상태는 참석/불참/보류(`yes`/`no`/`maybe`, `features/attendance/schema.ts`). 마감은 `matches.voteDeadline`(ISO)이고 마감 판정은 `isVoteClosed()` 하나를 클라이언트·서버가 같이 쓴다. 마감 뒤 명단 수정은 비밀번호가 걸린 배포에서 관리자만. 투표 아래 댓글(`match_comments`)은 "왜 불참/보류인지" 알리는 글이라 선수 이름을 밝히며, 익명 피드백과 다르다. 댓글은 마감 뒤에도 남길 수 있다.
+- **개인 PIN(숫자 4자리).** 참석 응답·응답 지우기·투표 댓글 쓰기/지우기는 그 선수의 PIN이 맞아야 한다. 판정은 `server/pin.ts`의 `authorizePlayer()` 한 곳에서만 한다. 처음 보낸 PIN이 그 선수의 PIN이 되고(scrypt 해시로 `players.pinHash`), 5번 틀리면 10분 잠금(DB에 저장). 비밀번호가 걸린 배포의 관리자는 PIN 없이 통과하고 `DELETE /api/players/[id]/pin`으로 초기화한다. API 응답에는 `hasPin`만 싣고 해시는 절대 내보내지 않는다(`toPlayer`). 브라우저는 한 번 맞힌 PIN을 `fc:pins`에 기억한다.
 - **포메이션 로직은 순수 함수.** `lineup-reducer.ts`(상태 전이), `auto-lineup.ts`(이분 매칭), `templates.ts`(슬롯 좌표), `lineup-text.ts`(텍스트). UI는 `dispatch`만 한다. 로직 변경은 여기서, UI 파일에서 규칙을 추가하지 않는다.
 - **포메이션 하나 = 1~4쿼터 라인업.** `SavedFormation.quarters`(길이 `QUARTER_COUNT`)에 쿼터별 모양과 배치가 들어가고 참석자는 네 쿼터가 공유한다. 리듀서의 자리 조작(모양, 탭, 비우기, 자동 배치)은 `activeQuarter`에만 적용된다. 자동 배치는 다른 쿼터 출전 수(`appearances`)를 받아 적게 뛴 선수를 먼저 세운다.
 - **포지션 목록은 `lib/positions.ts`가 유일한 출처.** 새 포지션은 여기에 추가하고 `POSITION_FALLBACKS`도 함께 채운다.

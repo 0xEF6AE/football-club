@@ -5,13 +5,21 @@ import type { Player, PlayerInput } from "@/features/players/schema";
 import { buildPlayerStats, type PlayerStats } from "@/features/players/stats";
 import { listMatches } from "./matches";
 
+type PlayerRow = typeof players.$inferSelect;
+
+/** DB 행 → API 응답. PIN 해시와 잠금 정보는 빼고 PIN을 정했는지만 알린다. */
+function toPlayer(row: PlayerRow): Player {
+  return { id: row.id, name: row.name, positions: row.positions, hasPin: row.pinHash !== null, createdAt: row.createdAt };
+}
+
 export async function listPlayers(): Promise<Player[]> {
-  return db.select().from(players).orderBy(asc(players.createdAt), asc(players.name));
+  const rows = await db.select().from(players).orderBy(asc(players.createdAt), asc(players.name));
+  return rows.map(toPlayer);
 }
 
 export async function getPlayer(id: string): Promise<Player | null> {
   const [row] = await db.select().from(players).where(eq(players.id, id)).limit(1);
-  return row ?? null;
+  return row ? toPlayer(row) : null;
 }
 
 /**
@@ -51,12 +59,12 @@ export async function createPlayer(input: PlayerInput): Promise<Player> {
     .insert(players)
     .values({ id: crypto.randomUUID(), ...input })
     .returning();
-  return row;
+  return toPlayer(row);
 }
 
 export async function updatePlayer(id: string, input: PlayerInput): Promise<Player | null> {
   const [row] = await db.update(players).set(input).where(eq(players.id, id)).returning();
-  return row ?? null;
+  return row ? toPlayer(row) : null;
 }
 
 /**

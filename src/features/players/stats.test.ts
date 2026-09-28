@@ -4,7 +4,7 @@ import type { Match, MatchGoal } from "@/features/matches/schema";
 import type { Player } from "./schema";
 import { buildPlayerStats } from "./stats";
 
-const me: Player = { id: "me", name: "이무성", positions: ["CB", "LB"], createdAt: "" };
+const me: Player = { id: "me", name: "이무성", positions: ["CB", "LB"], hasPin: false, createdAt: "" };
 
 const goal = (scorerId: string | null, assistId: string | null = null): MatchGoal => ({
   id: crypto.randomUUID(),

@@ -13,7 +13,7 @@ import {
 } from "./lineup-reducer";
 import { QUARTER_COUNT, type SavedFormation } from "./schema";
 
-const player = (id: string, positions: Position[]): Player => ({ id, name: id, positions, createdAt: "" });
+const player = (id: string, positions: Position[]): Player => ({ id, name: id, positions, hasPin: false, createdAt: "" });
 
 const players = [
   player("gk", ["GK"]),

@@ -18,6 +18,18 @@ export const players = sqliteTable("players", {
   name: text("name").notNull(),
   /** 가능한 포지션 목록. 앞에 올수록 선호(주 포지션). */
   positions: text("positions", { mode: "json" }).$type<Position[]>().notNull(),
+  /**
+   * 참석 투표·댓글용 개인 PIN(숫자 4자리)의 scrypt 해시. null이면 아직 안 정함.
+   * API 응답에는 절대 싣지 않는다 (server/players.ts의 toPlayer가 hasPin만 내보낸다).
+   */
+  pinHash: text("pin_hash"),
+  /**
+   * 연속으로 틀린 횟수. 맞히면 0으로. null은 0으로 본다.
+   * (NOT NULL로 두면 drizzle-kit이 기존 선수 행이 있는 테이블에 열을 추가할 때 데이터 손실 경고를 내서 nullable로 둔다.)
+   */
+  pinFailedCount: integer("pin_failed_count").default(0),
+  /** 여러 번 틀려 잠긴 경우 풀리는 시각(ISO). */
+  pinLockedUntil: text("pin_locked_until"),
   createdAt: isoTimestamp("created_at"),
 });
 

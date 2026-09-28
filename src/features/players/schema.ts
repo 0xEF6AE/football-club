@@ -12,10 +12,19 @@ export const playerInputSchema = z.object({
 
 export type PlayerInput = z.infer<typeof playerInputSchema>;
 
+/**
+ * 참석 투표·댓글을 "그 사람만" 할 수 있게 하는 개인 PIN. 숫자 4자리.
+ * 처음 쓸 때 정하고, 그 뒤로는 같은 PIN이 있어야 그 이름으로 응답을 바꾸거나 댓글을 쓸 수 있다.
+ */
+export const PIN_PATTERN = /^\d{4}$/;
+export const playerPinSchema = z.string().regex(PIN_PATTERN, "PIN은 숫자 4자리예요");
+
 export type Player = {
   id: string;
   name: string;
   /** 앞에 올수록 선호 포지션 */
   positions: Position[];
+  /** 개인 PIN을 정했는지. PIN 자체(해시 포함)는 절대 내려보내지 않는다. */
+  hasPin: boolean;
   createdAt: string;
 };

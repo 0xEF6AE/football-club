@@ -30,5 +30,7 @@ export function removeStorage(key: string) {
 export const STORAGE_KEYS = {
   theme: "fc:theme",
   me: "fc:me",
+  /** 선수 id → 이 기기에서 한 번 맞힌 PIN. 다음부터 다시 묻지 않으려고 둔다. */
+  pins: "fc:pins",
   lineupDraft: "fc:lineup-draft",
 } as const;

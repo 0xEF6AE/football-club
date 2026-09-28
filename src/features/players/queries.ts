@@ -38,6 +38,14 @@ export function useUpdatePlayer() {
   });
 }
 
+export function useResetPlayerPin() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: playersApi.resetPin,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: playerKeys.all }),
+  });
+}
+
 export function useDeletePlayer() {
   const queryClient = useQueryClient();
   return useMutation({

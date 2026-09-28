@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ChevronRight, Pencil, Trash, UserRoundPlus, Users } from "lucide-react";
+import { ChevronRight, KeyRound, Pencil, Trash, UserRoundPlus, Users } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -12,7 +12,7 @@ import { useAdmin } from "@/features/admin/queries";
 import { getErrorMessage } from "@/lib/api-client";
 import { POSITION_GROUP, POSITION_GROUP_LABEL, POSITION_GROUPS, type PositionGroup } from "@/lib/positions";
 import { cn } from "@/lib/utils";
-import { useCreatePlayer, useDeletePlayer, usePlayers, useUpdatePlayer } from "../queries";
+import { useCreatePlayer, useDeletePlayer, usePlayers, useResetPlayerPin, useUpdatePlayer } from "../queries";
 import type { Player } from "../schema";
 import { PlayerForm } from "./PlayerForm";
 
@@ -35,11 +35,13 @@ export function PlayerList() {
   const create = useCreatePlayer();
   const update = useUpdatePlayer();
   const remove = useDeletePlayer();
+  const resetPin = useResetPlayerPin();
   const { isAdmin } = useAdmin();
 
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<Player | null>(null);
+  const [resetting, setResetting] = useState<Player | null>(null);
 
   const players = query.data ?? [];
   const canEdit = isAdmin;
@@ -150,6 +152,18 @@ export function PlayerList() {
                       </Link>
                       {canEdit && (
                         <>
+                          {player.hasPin && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-muted"
+                              aria-label={`${player.name} PIN 초기화`}
+                              title="PIN 초기화"
+                              onClick={() => setResetting(player)}
+                            >
+                              <KeyRound className="size-4" aria-hidden />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="icon"
@@ -180,6 +194,21 @@ export function PlayerList() {
           ))
         )}
       </div>
+
+      <ConfirmDialog
+        open={resetting !== null}
+        title={`${resetting?.name ?? ""} 선수의 PIN을 초기화할까요?`}
+        description="지금 PIN은 더 이상 쓸 수 없어요. 다음에 참석 투표를 할 때 새 PIN을 정하게 돼요. 기존 응답과 댓글은 그대로 남아요."
+        confirmLabel="초기화"
+        pending={resetPin.isPending}
+        error={resetPin.isError ? getErrorMessage(resetPin.error) : null}
+        onConfirm={() => {
+          if (resetting) resetPin.mutate(resetting.id, { onSuccess: () => setResetting(null) });
+        }}
+        onCancel={() => {
+          if (!resetPin.isPending) setResetting(null);
+        }}
+      />
 
       <ConfirmDialog
         open={deleting !== null}

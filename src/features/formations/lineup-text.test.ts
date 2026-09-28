@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Player } from "@/features/players/schema";
 import { formatLineupText, formatQuartersText } from "./lineup-text";
 
-const player = (id: string, name: string): Player => ({ id, name, positions: ["CM"], createdAt: "" });
+const player = (id: string, name: string): Player => ({ id, name, positions: ["CM"], hasPin: false, createdAt: "" });
 
 describe("formatLineupText", () => {
   it("공격 줄부터 골키퍼 순서로, 한 줄 안에서는 왼쪽부터 적는다", () => {

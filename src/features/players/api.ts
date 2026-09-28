@@ -9,4 +9,6 @@ export const playersApi = {
   update: ({ id, input }: { id: string; input: PlayerInput }) =>
     api<Player>(`/api/players/${id}`, { method: "PATCH", json: input }),
   remove: (id: string) => api<void>(`/api/players/${id}`, { method: "DELETE" }),
+  /** 관리자: 개인 PIN 초기화 */
+  resetPin: (id: string) => api<void>(`/api/players/${id}/pin`, { method: "DELETE" }),
 };
