@@ -1,73 +1,90 @@
 "use client";
 
 import Image from "next/image";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CLUB_NAME } from "@/lib/config";
-import { SPLASH_DONE_EVENT, SPLASH_SEEN_KEY } from "@/lib/splash";
+import { SPLASH_DONE_EVENT, SPLASH_NEXT_PATH, SPLASH_PATH } from "@/lib/splash";
 
-/** 전체 길이(ms). globals.css의 splash-* 키프레임 타이밍과 맞춘다. */
-const TOTAL_MS = 2500;
-/** 눌러서 건너뛸 때 갈라지는 시간 */
-const SKIP_MS = 520;
+/** 그리기 연출이 끝나는 시점(ms). globals.css의 splash-* 키프레임과 맞춘다. */
+const DRAWN_MS = 1950;
+/** 이 시점에 /matches로 넘어가기 시작한다. 갈라질 때쯤엔 경기 화면이 그려져 있도록 조금 먼저. */
+const NAVIGATE_MS = 1500;
+/** 경기장이 위아래로 갈라지는 시간. globals.css의 .splash[data-opening] 과 맞춘다. */
+const OPEN_MS = 550;
 
 /**
- * 킥오프 스플래시.
- * 하프라인이 그어지고 → 센터서클이 그려지고 → 엠블럼이 센터 스폿에 떨어지며 금색 링이 퍼진 뒤
- * → 경기장이 하프라인을 따라 위아래로 갈라지며 본문이 드러난다.
+ * 킥오프 스플래시. 레이아웃(AppShell)에 있어서 "/" → "/matches"로 페이지가 바뀌는 동안에도 화면을 덮고 있다.
+ * 하프라인 → 센터서클 → 엠블럼 착지 + 금색 링 → (그 사이 /matches로 이동) → 경기장이 갈라지며 경기 화면이 드러난다.
  * 표시 여부는 <head> 인라인 스크립트(SPLASH_INIT_SCRIPT)가 첫 페인트 전에 정한다.
  */
 export function Splash() {
-  const [gone, setGone] = useState(false);
-  const [skipping, setSkipping] = useState(false);
-  const finished = useRef(false);
+  const pathname = usePathname();
+  const router = useRouter();
+  // 처음 들어온 주소가 "/"일 때만 그린다. 이후 주소가 바뀌어도 연출이 끝날 때까지 유지.
+  const [active, setActive] = useState(() => pathname === SPLASH_PATH);
+  const [drawn, setDrawn] = useState(false);
+  const [skipped, setSkipped] = useState(false);
+  const navigated = useRef(false);
 
-  const finish = useCallback(() => {
-    if (finished.current) return;
-    finished.current = true;
-    document.documentElement.setAttribute("data-splash", "off");
-    window.dispatchEvent(new Event(SPLASH_DONE_EVENT));
-    setGone(true);
-  }, []);
+  const goNext = useCallback(() => {
+    if (navigated.current) return;
+    navigated.current = true;
+    router.replace(SPLASH_NEXT_PATH);
+  }, [router]);
 
+  // 연출 타이머. 동작 줄이기 등으로 꺼져 있으면 곧장 /matches로.
   useEffect(() => {
-    // 이번에는 보여 주지 않기로 이미 정해졌으면 CSS(html[data-splash="off"] .splash)가 숨기고 있으니 할 일이 없다.
+    if (!active) return;
+    router.prefetch(SPLASH_NEXT_PATH);
     if (document.documentElement.getAttribute("data-splash") === "off") {
-      finished.current = true;
+      goNext();
       return;
     }
-    try {
-      sessionStorage.setItem(SPLASH_SEEN_KEY, "1");
-    } catch {
-      // 저장 못 하면 다음에 한 번 더 보일 뿐이다.
-    }
-    const timer = window.setTimeout(finish, TOTAL_MS);
+    const navTimer = window.setTimeout(goNext, NAVIGATE_MS);
+    const drawnTimer = window.setTimeout(() => setDrawn(true), DRAWN_MS);
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape" || event.key === "Enter" || event.key === " ") setSkipping(true);
+      if (event.key === "Escape" || event.key === "Enter" || event.key === " ") setSkipped(true);
     };
     window.addEventListener("keydown", onKey);
     return () => {
-      window.clearTimeout(timer);
+      window.clearTimeout(navTimer);
+      window.clearTimeout(drawnTimer);
       window.removeEventListener("keydown", onKey);
     };
-  }, [finish]);
+    // active는 처음 한 번만 정해지므로 마운트 때만 돈다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
-    if (!skipping) return;
-    const timer = window.setTimeout(finish, SKIP_MS);
-    return () => window.clearTimeout(timer);
-  }, [skipping, finish]);
+    if (skipped) goNext();
+  }, [skipped, goNext]);
 
-  if (gone) return null;
+  // 경기 화면으로 넘어갔고 (그리기가 끝났거나 건너뛰었으면) 갈라지기 시작한다.
+  const opening = active && pathname !== SPLASH_PATH && (drawn || skipped);
+
+  useEffect(() => {
+    if (!opening) return;
+    const timer = window.setTimeout(() => {
+      document.documentElement.setAttribute("data-splash", "off");
+      window.dispatchEvent(new Event(SPLASH_DONE_EVENT));
+      setActive(false);
+    }, OPEN_MS);
+    return () => window.clearTimeout(timer);
+  }, [opening]);
+
+  if (!active) return null;
 
   return (
     <div
       data-splash-root
-      data-skipping={skipping || undefined}
+      data-opening={opening || undefined}
+      data-skipping={skipped || undefined}
       aria-hidden
-      onClick={() => setSkipping(true)}
+      onClick={() => setSkipped(true)}
       className="splash fixed inset-0 z-50 cursor-pointer select-none overflow-hidden"
     >
-      {/* 갈라지는 두 반쪽. 잔디 줄무늬가 하프라인에서 정확히 이어지도록 같은 배경을 쓴다. */}
+      {/* 갈라지는 두 반쪽 */}
       <div className="splash-half splash-half-top absolute inset-x-0 top-0 h-1/2 bg-pitch-deep" />
       <div className="splash-half splash-half-bottom absolute inset-x-0 bottom-0 h-1/2 bg-pitch-deep" />
 

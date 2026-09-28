@@ -8,7 +8,7 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: CLUB_NAME,
     description: "경기 결과, 익명 피드백, 포메이션을 한곳에서",
     lang: "ko",
-    start_url: "/matches",
+    start_url: "/",
     display: "standalone",
     background_color: "#f2f4ef",
     theme_color: "#1b5e3b",
