@@ -304,7 +304,7 @@ export function MatchDetail({ id }: { id: string }) {
 
       <AttendanceSection match={match} />
 
-      {played && <FeedbackSection matchId={id} />}
+      {played && <FeedbackSection matchId={id} match={match} />}
 
       <ConfirmDialog
         open={confirming}

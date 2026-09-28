@@ -11,12 +11,14 @@ import { ErrorState } from "@/components/ui/States";
 import { useAdmin } from "@/features/admin/queries";
 import { getErrorMessage } from "@/lib/api-client";
 import { errorsFromApi, FORM_ERROR_KEY, validate, type FieldErrors } from "@/lib/form";
-import { cn, formatRelativeTime } from "@/lib/utils";
+import { cn, formatMatchDate, formatRelativeTime } from "@/lib/utils";
 import { useCreateFeedback, useDeleteFeedback, useFeedback } from "../queries";
 import {
   FEEDBACK_CATEGORIES,
   FEEDBACK_CATEGORY_LABEL,
   feedbackInputSchema,
+  feedbackLastDay,
+  isFeedbackOpen,
   type Feedback,
   type FeedbackCategory,
 } from "../schema";
@@ -35,7 +37,13 @@ const CATEGORY_BORDER: Record<FeedbackCategory, string> = {
 
 type Filter = FeedbackCategory | "all";
 
-export function FeedbackSection({ matchId }: { matchId: string }) {
+type FeedbackSectionProps = {
+  matchId: string;
+  /** 마감 판정용 (경기 날짜와 점수) */
+  match: { playedAt: string; ourScore: number | null; theirScore: number | null };
+};
+
+export function FeedbackSection({ matchId, match }: FeedbackSectionProps) {
   const query = useFeedback(matchId);
   const create = useCreateFeedback(matchId);
   const remove = useDeleteFeedback(matchId);
@@ -76,6 +84,8 @@ export function FeedbackSection({ matchId }: { matchId: string }) {
   const countBy = (c: FeedbackCategory) => items.filter((f) => f.category === c).length;
   const visible = filter === "all" ? items : items.filter((f) => f.category === filter);
   const message = errors.content ?? errors[FORM_ERROR_KEY];
+  const open = isFeedbackOpen(match);
+  const lastDay = formatMatchDate(feedbackLastDay(match.playedAt));
 
   return (
     <section aria-labelledby="feedback-heading" className="flex flex-col gap-4 border-t border-line pt-6">
@@ -90,40 +100,46 @@ export function FeedbackSection({ matchId }: { matchId: string }) {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-3 rounded-xl bg-surface-2/60 p-4">
-        <div role="group" aria-label="피드백 종류" className="flex flex-wrap gap-2">
-          {FEEDBACK_CATEGORIES.map((c) => (
-            <Chip key={c} size="sm" pressed={category === c} onClick={() => setCategory(c)}>
-              {FEEDBACK_CATEGORY_LABEL[c]}
-            </Chip>
-          ))}
-        </div>
-        <Textarea
-          aria-label="피드백 내용"
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder={PLACEHOLDER[category]}
-          rows={3}
-          maxLength={500}
-          invalid={!!errors.content}
-          className="bg-surface"
-        />
-        <div className="flex items-center justify-between gap-3">
-          <p className={cn("text-xs", message ? "text-danger" : "text-muted")} role={message ? "alert" : "status"}>
-            {message ?? (sentAt ? "남겼어요" : "이름이나 기기 정보는 저장하지 않아요")}
-          </p>
-          <Button type="submit" size="sm" pending={create.isPending}>
-            남기기
-          </Button>
-        </div>
-      </form>
+      {open ? (
+        <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-3 rounded-xl bg-surface-2/60 p-4">
+          <div role="group" aria-label="피드백 종류" className="flex flex-wrap gap-2">
+            {FEEDBACK_CATEGORIES.map((c) => (
+              <Chip key={c} size="sm" pressed={category === c} onClick={() => setCategory(c)}>
+                {FEEDBACK_CATEGORY_LABEL[c]}
+              </Chip>
+            ))}
+          </div>
+          <Textarea
+            aria-label="피드백 내용"
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            placeholder={PLACEHOLDER[category]}
+            rows={3}
+            maxLength={500}
+            invalid={!!errors.content}
+            className="bg-surface"
+          />
+          <div className="flex items-center justify-between gap-3">
+            <p className={cn("text-xs", message ? "text-danger" : "text-muted")} role={message ? "alert" : "status"}>
+              {message ?? (sentAt ? "남겼어요" : `${lastDay}까지 남길 수 있어요. 이름이나 기기 정보는 저장하지 않아요`)}
+            </p>
+            <Button type="submit" size="sm" pending={create.isPending}>
+              남기기
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <p className="rounded-xl bg-surface-2/60 p-4 text-sm text-muted">
+          피드백은 경기 후 2주({lastDay})까지 받았어요. 지금은 남겨진 글만 볼 수 있어요.
+        </p>
+      )}
 
       {query.isPending ? (
         <ListSkeleton rows={2} />
       ) : query.isError ? (
         <ErrorState message={getErrorMessage(query.error)} onRetry={() => query.refetch()} retrying={query.isFetching} />
       ) : items.length === 0 ? (
-        <p className="py-4 text-center text-sm text-muted">아직 피드백이 없어요. 첫 번째로 남겨 보세요.</p>
+        <p className="py-4 text-center text-sm text-muted">{open ? "아직 피드백이 없어요. 첫 번째로 남겨 보세요." : "남겨진 피드백이 없어요."}</p>
       ) : (
         <>
           <div role="group" aria-label="피드백 필터" className="flex flex-wrap gap-2">

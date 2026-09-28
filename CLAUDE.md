@@ -12,6 +12,7 @@ npm run db:push    # 스키마 → DB 테이블 (최초 1회, 스키마 바꿀 �
 npm run db:seed    # 예시 선수/경기 넣기 (선수가 있으면 건너뜀)
 npm run typecheck  # tsc --noEmit
 npm run lint       # eslint
+npm test           # vitest: 순수 로직(src/**/*.test.ts) + API 규칙(tests/api, 파일마다 빈 SQLite)
 npm run build
 node scripts/make-icons.mjs <엠블럼.png>   # 로고·파비콘·PWA 아이콘 일괄 생성
 ```
@@ -56,7 +57,7 @@ scripts/make-icons.mjs  엠블럼 PNG 하나로 public/logo.png, src/app/icon.pn
 - **Query key는 `queries.ts`의 `xxxKeys` 객체만 사용.** 변경 후 무효화 범위도 거기서 결정한다 (예: 선수 이름 변경 → matches도 무효화).
 - **속도.** DB(Turso)는 도쿄에 있고 Vercel 함수도 `vercel.json`의 `regions: ["hnd1"]`로 도쿄에 둔다. 둘이 떨어지면 쿼리마다 왕복이 붙으니 리전을 바꿀 때는 같이 옮긴다. 서버 함수에서 서로 기다릴 필요 없는 쿼리는 `Promise.all`로 한 번에 보낸다. 클라이언트는 앱 시작 시 경기·선수 목록을 미리 받고(`app/providers.tsx`), 화면 아래쪽 섹션이 쓰는 데이터는 상위 컴포넌트에서 미리 요청해 요청이 줄 서지 않게 한다(예: `MatchDetail`의 `usePrefetchMatchSections`). 기본 staleTime은 1분.
 - **페이지는 Server Component, 상태·훅이 필요한 곳만 `"use client"`.** 페이지에서 데이터를 미리 가져오지 않고 클라이언트 훅이 가져온다 (로딩·오류·빈 상태는 컴포넌트 안에서 처리).
-- **익명 피드백.** 작성자를 알 수 있는 정보(IP, UA, 쿠키, 세션)는 받지도 저장하지도 않는다. 이 규칙을 깨는 기능은 만들지 않는다.
+- **익명 피드백.** 작성자를 알 수 있는 정보(IP, UA, 쿠키, 세션)는 받지도 저장하지도 않는다. 이 규칙을 깨는 기능은 만들지 않는다. 피드백은 결과가 기록된 경기에만, 경기 후 14일(`FEEDBACK_WINDOW_DAYS`, 한국 시간 자정)까지 받는다. 도배 방지는 작성자를 식별하지 않고 저장된 `createdAt`으로 최근 글 수만 센다(`server/feedback.ts`의 `FEEDBACK_RATE_LIMITS`).
 - **참석 투표.** 상태는 참석/불참/보류(`yes`/`no`/`maybe`, `features/attendance/schema.ts`). 마감은 `matches.voteDeadline`(ISO)이고 마감 판정은 `isVoteClosed()` 하나를 클라이언트·서버가 같이 쓴다. 마감 뒤 명단 수정은 비밀번호가 걸린 배포에서 관리자만. 투표 아래 댓글(`match_comments`)은 "왜 불참/보류인지" 알리는 글이라 선수 이름을 밝히며, 익명 피드백과 다르다. 댓글은 마감 뒤에도 남길 수 있다.
 - **개인 PIN(숫자 4자리).** 참석 응답·응답 지우기·투표 댓글 쓰기/지우기는 그 선수의 PIN이 맞아야 한다. 판정은 `server/pin.ts`의 `authorizePlayer()` 한 곳에서만 한다. 처음 보낸 PIN이 그 선수의 PIN이 되고(scrypt 해시로 `players.pinHash`), 5번 틀리면 10분 잠금(DB에 저장). 비밀번호가 걸린 배포의 관리자는 PIN 없이 통과하고 `DELETE /api/players/[id]/pin`으로 초기화한다. API 응답에는 `hasPin`만 싣고 해시는 절대 내보내지 않는다(`toPlayer`). 브라우저는 한 번 맞힌 PIN을 `fc:pins`에 기억한다.
 - **포메이션 로직은 순수 함수.** `lineup-reducer.ts`(상태 전이), `auto-lineup.ts`(이분 매칭), `templates.ts`(슬롯 좌표), `lineup-text.ts`(텍스트). UI는 `dispatch`만 한다. 로직 변경은 여기서, UI 파일에서 규칙을 추가하지 않는다.
@@ -66,6 +67,8 @@ scripts/make-icons.mjs  엠블럼 PNG 하나로 public/logo.png, src/app/icon.pn
 - **타임스탬프는 ISO 문자열**, 경기 날짜는 `YYYY-MM-DD` 문자열, 킥오프 시각은 정각 단위 `HH:00` 문자열(`matches.kickoffTime`, null이면 미정. 표시는 `formatKickoffTime()` → "오전 7시"). Date 객체를 API 경계로 넘기지 않는다.
 - **선수 기록은 `features/players/stats.ts`의 `buildPlayerStats()` 한 곳에서 계산**하고 `GET /api/players/[id]/stats`가 돌려준다. "출전"은 따로 입력받지 않고 참석 투표 "참석", 경기에 붙인 포메이션 명단, 골·도움 기록 중 하나라도 있으면 출전으로 센다. 참석률 = 출전 ÷ 결과가 기록된 팀 경기 수.
 - **상대전적은 `features/matches/stats.ts`의 `buildHeadToHead()`**. 상대 이름은 공백 제거 + 대소문자 무시로 비교한다(`normalizeOpponent`). 철자가 다르면 다른 팀이다.
+
+- **규칙은 API 테스트로 지킨다 (`tests/api`).** 쓰기 API는 `src/app/api`를 자동으로 훑어 관리자 쿠키 없이 401인지 본다. 모임원 누구나 쓰는 API를 새로 만들면 `admin-guard.test.ts`의 `OPEN_TO_MEMBERS`에 이유와 함께 적는다. 피드백 익명성(저장 열, 헤더 미사용), PIN, 피드백 마감·도배 방지도 여기서 검사한다. 규칙을 바꾸면 테스트를 먼저 고친다.
 
 ## 디자인
 
