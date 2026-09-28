@@ -1,26 +1,150 @@
 @import "tailwindcss";
 
+/*
+  디자인 토큰 — "경기장과 전광판"
+  - chalk(배경) 위에 pitch(잔디 초록)를 주색으로, 전광판 amber를 점수/강조에만 쓴다.
+  - 색은 반드시 아래 토큰을 통해 쓰고, 컴포넌트에 임의의 hex를 넣지 않는다.
+  - 테마: <html data-theme="light|dark">가 있으면 그걸 따르고, 없으면 OS 설정을 따른다.
+    (다크 값이 두 곳에 있는 이유. 바꿀 때는 두 블록을 같이 고친다.)
+*/
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  --bg: #f2f4ef;
+  --surface: #ffffff;
+  --surface-2: #e7ebe3;
+  --fg: #131a15;
+  --muted: #5d6960;
+  --line: #d3dacf;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --pitch: #1b5e3b;
+  --pitch-deep: #0f3d26;
+  --pitch-line: rgba(255, 255, 255, 0.82);
+  --on-pitch: #ffffff;
+
+  --amber: #e8a21b;
+  --amber-fg: #1a1200;
+
+  --win: #1b5e3b;
+  --draw: #6b7268;
+  --loss: #b23a2e;
+  --danger: #b23a2e;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  :root:not([data-theme="light"]) {
+    --bg: #0d1410;
+    --surface: #152019;
+    --surface-2: #1d2b22;
+    --fg: #ecf0e9;
+    --muted: #97a59b;
+    --line: #27382d;
+
+    --pitch: #1f6a43;
+    --pitch-deep: #123f29;
+    --pitch-line: rgba(255, 255, 255, 0.7);
+
+    --amber: #f0b13a;
+    --amber-fg: #1a1200;
+
+    --win: #4fbf7f;
+    --draw: #98a49a;
+    --loss: #e26a5d;
+    --danger: #e26a5d;
   }
 }
 
+:root[data-theme="dark"] {
+  --bg: #0d1410;
+  --surface: #152019;
+  --surface-2: #1d2b22;
+  --fg: #ecf0e9;
+  --muted: #97a59b;
+  --line: #27382d;
+
+  --pitch: #1f6a43;
+  --pitch-deep: #123f29;
+  --pitch-line: rgba(255, 255, 255, 0.7);
+
+  --amber: #f0b13a;
+  --amber-fg: #1a1200;
+
+  --win: #4fbf7f;
+  --draw: #98a49a;
+  --loss: #e26a5d;
+  --danger: #e26a5d;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-pitch: var(--pitch);
+  --color-pitch-deep: var(--pitch-deep);
+  --color-pitch-line: var(--pitch-line);
+  --color-on-pitch: var(--on-pitch);
+  --color-amber: var(--amber);
+  --color-amber-fg: var(--amber-fg);
+  --color-win: var(--win);
+  --color-draw: var(--draw);
+  --color-loss: var(--loss);
+  --color-danger: var(--danger);
+
+  --font-sans:
+    "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto,
+    "Helvetica Neue", "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic",
+    sans-serif;
+  /* 점수·기록·포지션 약어 등 숫자/라틴 표기 전용. 한글 본문에는 쓰지 않는다. */
+  --font-display: var(--font-oswald), "Pretendard Variable", sans-serif;
+}
+
+/*
+  Tailwind의 dark: 변형이 OS 설정만이 아니라 <html data-theme>도 따르게 한다.
+  조건은 위의 다크 토큰 블록 두 개와 같다. 테마 판정 규칙을 바꾸면 세 곳을 같이 고친다.
+*/
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *) {
+      @slot;
+    }
+  }
+}
+
+html {
+  color-scheme: light dark;
+}
+
+html[data-theme="light"] {
+  color-scheme: light;
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* 숫자 폭을 고정해 점수·기록이 흔들리지 않게 */
+.font-display {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

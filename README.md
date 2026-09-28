@@ -1,36 +1,35 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 축구 모임 웹
 
-## Getting Started
+주말 축구 모임을 위한 작은 웹앱.
 
-First, run the development server:
+- **경기 결과** — 매주 경기 점수와 득점자를 기록하고 시즌 전적(승/무/패, 득실)을 한눈에 본다.
+- **참석 투표** — 예정 경기에 참석/불참/보류로 답한다. 관리자가 마감 시각을 정하면 그 뒤로는 바꿀 수 없다. 투표 아래 댓글로 왜 불참·보류인지 남길 수 있다(이름 공개, 마감 뒤에도 가능).
+- **익명 피드백** — 각 경기에 대해 좋았던 점, 아쉬운 점, 제안을 익명으로 남긴다. 작성자 정보는 어떤 형태로도 저장하지 않는다.
+- **포메이션** — 선수마다 가능한 포지션을 등록해 두면, 참석자만 골라 1~4쿼터를 4-2-3-1 / 4-1-2-3 / 4-3-3 / 4-4-2 / 3-5-2로 자동 배치한다. 앞 쿼터에서 쉰 선수가 다음 쿼터에 먼저 들어가도록 출전 시간을 나눈다. 쿼터마다 자리를 눌러 바꾸고, 네 쿼터를 한 번에 저장하고, 카톡용 텍스트로 복사할 수 있다.
+
+## 시작하기
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run db:push   # local.db에 테이블 생성
+npm run db:seed   # (선택) 예시 선수와 경기 넣기
+npm run dev       # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 배포
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Turso 등 libsql 호환 DB를 쓰려면 `.env`에 아래 값을 넣고 `npm run db:push`를 한 번 실행한다.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+2026-09-28 이전 스키마(포메이션이 `shape`/`assignments` 컬럼)로 만든 DB에 push하면 `quarters` 컬럼이 이름을 바꾼 것인지 묻는데, "create column"을 고른다. 옛 포메이션 데이터는 옮겨지지 않으니 필요하면 다시 저장한다. push는 대화형 터미널에서 실행해야 한다.
 
-## Learn More
+```
+DATABASE_URL=libsql://...
+DATABASE_AUTH_TOKEN=...
+NEXT_PUBLIC_CLUB_NAME=뽀잉 fc
+```
 
-To learn more about Next.js, take a look at the following resources:
+## 스택
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Next.js 16 (App Router, Route Handlers) · React 19 · TypeScript · Tailwind CSS v4 · TanStack Query v5 · Drizzle ORM + libsql (SQLite) · zod
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+구조와 코딩 규칙은 [CLAUDE.md](./CLAUDE.md)에 있다.
