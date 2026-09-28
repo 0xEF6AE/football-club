@@ -3,6 +3,7 @@ import { Oswald } from "next/font/google";
 import { AppShell } from "@/components/layout/AppShell";
 import { CLUB_NAME } from "@/lib/config";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
+import { SPLASH_INIT_SCRIPT } from "@/lib/splash";
 import { Providers } from "./providers";
 import "./globals.css";
 
@@ -32,7 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     // data-theme는 첫 페인트 전 인라인 스크립트가 붙이므로 서버 HTML과 달라질 수 있다.
     <html lang="ko" className={`${oswald.variable} h-full`} suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT + SPLASH_INIT_SCRIPT }} />
         <link
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"

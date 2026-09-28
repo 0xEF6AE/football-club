@@ -140,6 +140,95 @@ body {
   letter-spacing: 0.02em;
 }
 
+/*
+  킥오프 스플래시 (components/layout/Splash.tsx)
+  0.1s 하프라인 → 0.3s 센터서클 → 0.9s 엠블럼 착지 → 1.25s 금색 링 → 1.95s 위아래로 갈라짐 → 2.5s 끝.
+  길이를 바꾸면 Splash.tsx의 TOTAL_MS도 같이 바꾼다.
+*/
+html[data-splash="off"] .splash {
+  display: none;
+}
+
+.splash-half {
+  background-image: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 48px, transparent 48px 96px);
+  animation: splash-open-top 550ms cubic-bezier(0.7, 0, 0.3, 1) 1950ms both;
+}
+.splash-half-bottom {
+  animation-name: splash-open-bottom;
+}
+.splash-stage {
+  animation: splash-fade-out 260ms ease-in 1900ms both;
+}
+.splash-halfway {
+  transform-origin: center;
+  animation: splash-draw-line 500ms cubic-bezier(0.2, 0.7, 0.2, 1) 100ms both;
+}
+.splash-circle {
+  stroke-dasharray: 1;
+  animation: splash-draw-circle 700ms cubic-bezier(0.45, 0, 0.25, 1) 300ms both;
+}
+.splash-emblem {
+  animation: splash-land 520ms cubic-bezier(0.3, 1.5, 0.5, 1) 900ms both;
+}
+/* 시작 전에는 안 보여야 하므로 both가 아니라 forwards (both면 대기 중에도 첫 프레임이 보인다) */
+.splash-ring {
+  opacity: 0;
+  animation: splash-ring 750ms ease-out 1250ms forwards;
+}
+.splash-name {
+  animation: splash-name 500ms ease-out 1300ms both;
+}
+
+/* 눌러서 건너뛰기: 그리던 걸 멈추고 바로 갈라진다 */
+.splash[data-skipping] .splash-half {
+  animation-delay: 0ms;
+  animation-duration: 500ms;
+}
+.splash[data-skipping] .splash-stage {
+  animation-delay: 0ms;
+  animation-duration: 150ms;
+}
+
+@keyframes splash-draw-line {
+  from { transform: translateY(-50%) scaleX(0); }
+  to { transform: translateY(-50%) scaleX(1); }
+}
+@keyframes splash-draw-circle {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes splash-land {
+  from { opacity: 0; transform: scale(0.35) translateY(-18%); }
+  60% { opacity: 1; }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes splash-ring {
+  from { opacity: 0.9; transform: scale(1); }
+  to { opacity: 0; transform: scale(2.2); }
+}
+@keyframes splash-name {
+  from { opacity: 0; letter-spacing: 0.6em; }
+  to { opacity: 1; letter-spacing: 0.2em; }
+}
+@keyframes splash-fade-out {
+  to { opacity: 0; transform: scale(1.04); }
+}
+@keyframes splash-open-top {
+  to { transform: translateY(-100%); }
+}
+@keyframes splash-open-bottom {
+  to { transform: translateY(100%); }
+}
+
+/* 전광판 최근 결과: 숫자가 다 오른 뒤 왼쪽부터 하나씩 켜진다 (SeasonBoard) */
+.board-light {
+  animation: board-light 260ms ease-out both;
+}
+@keyframes board-light {
+  from { opacity: 0.15; transform: scale(0.7); }
+  to { opacity: 1; transform: scale(1); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
