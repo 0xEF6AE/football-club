@@ -13,10 +13,13 @@ import { summarizeShapes } from "@/features/formations/schema";
 import { usePlayers } from "@/features/players/queries";
 import { CLUB_NAME } from "@/lib/config";
 import { errorsFromApi, FORM_ERROR_KEY, validate, type FieldErrors } from "@/lib/form";
-import { cn, fromDateTimeLocal, toDateTimeLocal, todayIsoDate } from "@/lib/utils";
+import { cn, formatKickoffTime, fromDateTimeLocal, toDateTimeLocal, todayIsoDate } from "@/lib/utils";
 import { isPlayed, matchInputSchema, type Match, type MatchInput } from "../schema";
 
 type GoalDraft = { key: string; scorerId: string; assistId: string };
+
+/** 킥오프는 정각만 고른다: "00:00" ~ "23:00" */
+const KICKOFF_HOURS = Array.from({ length: 24 }, (_, hour) => `${String(hour).padStart(2, "0")}:00`);
 
 /** 경기 전날 21:00 (브라우저 로컬). 투표 마감의 흔한 기본값. */
 function eveningBefore(playedAt: string): string {
@@ -131,14 +134,19 @@ export function MatchForm({ initial, submitLabel, pending, onSubmit, cancelHref 
           />
         </Field>
         <Field label="킥오프" htmlFor={`${id}-kickoff`} error={errors.kickoffTime} optional>
-          <Input
+          <Select
             id={`${id}-kickoff`}
-            type="time"
-            step={300}
             value={kickoffTime}
             onChange={(e) => setKickoffTime(e.target.value)}
             invalid={!!errors.kickoffTime}
-          />
+          >
+            <option value="">미정</option>
+            {KICKOFF_HOURS.map((time) => (
+              <option key={time} value={time}>
+                {formatKickoffTime(time)}
+              </option>
+            ))}
+          </Select>
         </Field>
         <Field label="상대팀" htmlFor={`${id}-opponent`} error={errors.opponent} className="col-span-2 sm:col-span-1">
           <Input

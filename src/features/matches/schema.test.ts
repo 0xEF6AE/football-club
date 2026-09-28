@@ -109,7 +109,13 @@ describe("matchInputSchema", () => {
     if (!local.success) expect(local.error.issues[0].path).toEqual(["voteDeadline"]);
   });
 
-  it("킥오프 시간은 HH:mm만 받고 빈 값은 null이 된다", () => {
+  it("킥오프는 정각만 받는다", () => {
+    const halfPast = matchInputSchema.safeParse({ ...base, kickoffTime: "07:30" });
+    expect(halfPast.success).toBe(false);
+    if (!halfPast.success) expect(halfPast.error.issues[0].message).toBe("킥오프는 정각 단위로 골라 주세요");
+  });
+
+  it("킥오프 시간은 HH:00만 받고 빈 값은 null이 된다", () => {
     const ok = matchInputSchema.safeParse({ ...base, kickoffTime: "07:00" });
     expect(ok.success && ok.data.kickoffTime).toBe("07:00");
     const empty = matchInputSchema.safeParse({ ...base, kickoffTime: "" });

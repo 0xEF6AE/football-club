@@ -16,10 +16,10 @@ const score = z
   .min(0, "0 이상이어야 해요")
   .max(99, "99 이하여야 해요");
 
-/** <input type="time"> 값 "HH:mm". 빈 문자열은 null(시간 미정)로 정규화한다. */
+/** 킥오프는 정각 단위 "HH:00". 빈 문자열은 null(시간 미정)로 정규화한다. */
 const kickoffTime = z
   .string()
-  .regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/, "시간을 확인해 주세요")
+  .regex(/^(?:[01]\d|2[0-3]):00$/, "킥오프는 정각 단위로 골라 주세요")
   .or(z.literal(""))
   .nullable()
   .transform((value) => (value ? value : null));
