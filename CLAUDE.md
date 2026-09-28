@@ -60,6 +60,7 @@ scripts/make-icons.mjs  엠블럼 PNG 하나로 public/logo.png, src/app/icon.pn
 - **참석 투표.** 상태는 참석/불참/보류(`yes`/`no`/`maybe`, `features/attendance/schema.ts`). 마감은 `matches.voteDeadline`(ISO)이고 마감 판정은 `isVoteClosed()` 하나를 클라이언트·서버가 같이 쓴다. 마감 뒤 명단 수정은 비밀번호가 걸린 배포에서 관리자만. 투표 아래 댓글(`match_comments`)은 "왜 불참/보류인지" 알리는 글이라 선수 이름을 밝히며, 익명 피드백과 다르다. 댓글은 마감 뒤에도 남길 수 있다.
 - **개인 PIN(숫자 4자리).** 참석 응답·응답 지우기·투표 댓글 쓰기/지우기는 그 선수의 PIN이 맞아야 한다. 판정은 `server/pin.ts`의 `authorizePlayer()` 한 곳에서만 한다. 처음 보낸 PIN이 그 선수의 PIN이 되고(scrypt 해시로 `players.pinHash`), 5번 틀리면 10분 잠금(DB에 저장). 비밀번호가 걸린 배포의 관리자는 PIN 없이 통과하고 `DELETE /api/players/[id]/pin`으로 초기화한다. API 응답에는 `hasPin`만 싣고 해시는 절대 내보내지 않는다(`toPlayer`). 브라우저는 한 번 맞힌 PIN을 `fc:pins`에 기억한다.
 - **포메이션 로직은 순수 함수.** `lineup-reducer.ts`(상태 전이), `auto-lineup.ts`(이분 매칭), `templates.ts`(슬롯 좌표), `lineup-text.ts`(텍스트). UI는 `dispatch`만 한다. 로직 변경은 여기서, UI 파일에서 규칙을 추가하지 않는다.
+- **포메이션 편집은 관리자만.** `/formation`은 관리자면 `FormationBuilder`(자리 바꾸기·자동 배치·저장), 아니면 `FormationViewer`(저장된 라인업을 쿼터별로 보기·카톡 텍스트 복사만)를 띄운다. 저장·삭제 API도 `requireAdmin`으로 막혀 있다.
 - **포메이션 하나 = 1~4쿼터 라인업.** `SavedFormation.quarters`(길이 `QUARTER_COUNT`)에 쿼터별 모양과 배치가 들어가고 참석자는 네 쿼터가 공유한다. 리듀서의 자리 조작(모양, 탭, 비우기, 자동 배치)은 `activeQuarter`에만 적용된다. 자동 배치는 다른 쿼터 출전 수(`appearances`)를 받아 적게 뛴 선수를 먼저 세운다.
 - **포지션 목록은 `lib/positions.ts`가 유일한 출처.** 새 포지션은 여기에 추가하고 `POSITION_FALLBACKS`도 함께 채운다.
 - **타임스탬프는 ISO 문자열**, 경기 날짜는 `YYYY-MM-DD` 문자열, 킥오프 시각은 정각 단위 `HH:00` 문자열(`matches.kickoffTime`, null이면 미정. 표시는 `formatKickoffTime()` → "오전 7시"). Date 객체를 API 경계로 넘기지 않는다.

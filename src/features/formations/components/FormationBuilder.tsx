@@ -10,6 +10,7 @@ import { Chip } from "@/components/ui/Chip";
 import { Select } from "@/components/ui/Input";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState } from "@/components/ui/States";
+import { useAdmin } from "@/features/admin/queries";
 import { attendanceApi } from "@/features/attendance/api";
 import { attendanceKeys } from "@/features/attendance/queries";
 import { useMatches } from "@/features/matches/queries";
@@ -33,6 +34,7 @@ import { formatQuartersText } from "../lineup-text";
 import { useFormations } from "../queries";
 import { FORMATION_SHAPES, QUARTER_COUNT, quarterLabel, type SavedFormation } from "../schema";
 import { getSlots } from "../templates";
+import { FormationViewer } from "./FormationViewer";
 import { Pitch } from "./Pitch";
 import { SavedFormations } from "./SavedFormations";
 
@@ -50,21 +52,24 @@ export function FormationSkeleton() {
 }
 
 /**
- * 선수 목록(과 ?load= 로 지정된 저장 포메이션)을 불러온 뒤 빌더를 띄운다.
+ * 관리자면 빌더(자리 바꾸기·자동 배치·저장), 아니면 저장된 라인업을 보기만 하는 화면을 띄운다.
  * 선수가 없으면 등록 화면으로 안내.
  */
 export function FormationPageContent() {
   const players = usePlayers();
   const formations = useFormations();
+  const { isAdmin, isLoading: adminLoading } = useAdmin();
   const loadId = useSearchParams().get("load");
 
-  if (players.isPending || (loadId && formations.isPending)) return <FormationSkeleton />;
+  if (players.isPending || adminLoading || (loadId && formations.isPending)) return <FormationSkeleton />;
 
   if (players.isError) {
     return (
       <ErrorState message={getErrorMessage(players.error)} onRetry={() => players.refetch()} retrying={players.isFetching} />
     );
   }
+
+  if (!isAdmin) return <FormationViewer players={players.data} loadId={loadId} />;
 
   if (players.data.length === 0) {
     return (

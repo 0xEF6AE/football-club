@@ -173,7 +173,7 @@ function MatchFormationPanel({ formation }: { formation: MatchFormationRef }) {
           href={`/formation?load=${formation.id}`}
           className={buttonStyles({ variant: "ghost", size: "sm", className: "text-pitch" })}
         >
-          빌더에서 열기
+          <AdminOnly fallback="라인업 크게 보기">빌더에서 열기</AdminOnly>
         </Link>
       </div>
       <p className="mb-3 font-medium">
