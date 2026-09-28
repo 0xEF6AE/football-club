@@ -1,7 +1,8 @@
 // 엠블럼 원본(정사각형 PNG, 어두운 배경에 밝은 엠블럼)에서 앱 로고와 아이콘을 모두 만든다.
 //   node scripts/make-icons.mjs path/to/emblem.png
 // 만드는 파일:
-//   public/logo.png               원형으로 잘라낸 로고, 바깥은 투명 (헤더, 링크 미리보기)
+//   public/logo.png               원형으로 잘라낸 로고, 바깥은 투명 (헤더, 경기 링크 미리보기)
+//   src/app/opengraph-image.jpg   첫 주소 링크 미리보기 대표 이미지 1200×630
 //   src/app/icon.png              파비콘 (투명 배경 원형)
 //   src/app/apple-icon.png        iOS 홈 화면 아이콘. 불투명 검정 배경, 모서리는 iOS가 둥글린다
 //   public/icons/icon-192.png     PWA 일반 아이콘 (투명 배경 원형)
@@ -85,8 +86,42 @@ async function square(size, ratio) {
   return (await cropAround(ratio)).resize(size, size).removeAlpha().png({ compressionLevel: 9, palette: true }).toBuffer();
 }
 
+/**
+ * 링크 미리보기 대표 이미지 1200×630 (카톡·메신저가 첫 주소를 공유할 때 쓴다).
+ * 스플래시와 같은 장면: 잔디 줄무늬 위 하프라인과 센터서클, 가운데 엠블럼.
+ * 메신저가 가운데를 정사각형이나 2:1로 잘라도 엠블럼이 온전히 보이도록 세로 높이 안에 둔다.
+ * 선명도가 중요해서 팔레트로 줄이지 않고 원본에서 바로 키운 JPEG로 만든다.
+ */
+async function openGraphImage() {
+  const width = 1200;
+  const height = 630;
+  const emblem = 440;
+  const pitch = "#0f3d26"; // globals.css --pitch-deep
+  const stripes = Array.from({ length: Math.ceil(height / 90) }, (_, i) =>
+    i % 2 === 0 ? `<rect y="${i * 90}" width="${width}" height="45" fill="#ffffff" fill-opacity="0.035"/>` : "",
+  ).join("");
+  const field = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+      <rect width="${width}" height="${height}" fill="${pitch}"/>
+      ${stripes}
+      <line x1="0" y1="${height / 2}" x2="${width}" y2="${height / 2}" stroke="#ffffff" stroke-opacity="0.75" stroke-width="3"/>
+      <circle cx="${width / 2}" cy="${height / 2}" r="${emblem / 2 + 42}" fill="none" stroke="#ffffff" stroke-opacity="0.75" stroke-width="3"/>
+    </svg>`,
+  );
+  const crisp = await (await cropAround(0.94))
+    .resize(emblem, emblem, { kernel: "lanczos3" })
+    .composite([{ input: circleMask(emblem), blend: "dest-in" }])
+    .png()
+    .toBuffer();
+  return sharp(field)
+    .composite([{ input: crisp, gravity: "centre" }])
+    .jpeg({ quality: 92, chromaSubsampling: "4:4:4", mozjpeg: true })
+    .toBuffer();
+}
+
 const outputs = [
   ["public/logo.png", await badge(512)],
+  ["src/app/opengraph-image.jpg", await openGraphImage()],
   ["src/app/icon.png", await badge(128)],
   ["src/app/apple-icon.png", await square(180, 0.85)],
   ["public/icons/icon-192.png", await badgeOnTransparent(192, 0.96)],

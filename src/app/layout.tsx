@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Oswald } from "next/font/google";
 import { AppShell } from "@/components/layout/AppShell";
-import { CLUB_NAME } from "@/lib/config";
+import { CLUB_DESCRIPTION, CLUB_NAME, SITE_URL } from "@/lib/config";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import { SPLASH_INIT_SCRIPT } from "@/lib/splash";
 import { Providers } from "./providers";
@@ -15,9 +15,13 @@ const oswald = Oswald({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: { default: CLUB_NAME, template: `%s · ${CLUB_NAME}` },
-  description: "경기 결과, 익명 피드백, 포메이션을 한곳에서",
+  description: CLUB_DESCRIPTION,
   applicationName: CLUB_NAME,
+  // 카톡 미리보기는 og: 태그를 읽는다 (없으면 "여기를 눌러 링크를 확인하세요"가 뜬다).
+  // 이미지는 app/opengraph-image.jpg 파일이 자동으로 붙는다. 경기 상세는 자기 openGraph를 따로 정한다.
+  openGraph: { type: "website", siteName: CLUB_NAME, locale: "ko_KR", title: CLUB_NAME, description: CLUB_DESCRIPTION },
   appleWebApp: { capable: true, title: CLUB_NAME, statusBarStyle: "default" },
 };
 

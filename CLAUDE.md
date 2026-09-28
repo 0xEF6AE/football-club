@@ -45,7 +45,7 @@ src/
   components/ui         Button, Field/Input, Chip, ConfirmDialog, States, Skeleton, PageHeader
   components/layout     AppShell, Nav
 scripts/seed.ts         예시 데이터
-scripts/make-icons.mjs  엠블럼 PNG 하나로 public/logo.png, src/app/icon.png·apple-icon.png, public/icons/* 생성
+scripts/make-icons.mjs  엠블럼 PNG 하나로 public/logo.png, src/app/icon.png·apple-icon.png·opengraph-image.jpg, public/icons/* 생성
 ```
 
 의존 방향: `app → features → lib`, `app/api → server → lib`. `features/*`는 `server/*`를 import하지 않는다.
@@ -79,4 +79,4 @@ scripts/make-icons.mjs  엠블럼 PNG 하나로 public/logo.png, src/app/icon.pn
 - **움직임은 두 곳만.** 첫 화면 `/`의 킥오프 스플래시(`components/layout/Splash.tsx`, AppShell에 있음. 처음 접속뿐 아니라 헤더 로고로 `/`에 올 때마다 처음부터 다시 돈다. 연출 중 `/matches`로 넘어가고 경기 화면이 준비되면 갈라진다. 누르면 건너뜀)와 그 뒤 전광판 점등(`SeasonBoard`, 페이지 로드당 한 번). 표시 여부는 `lib/splash.ts`의 인라인 스크립트가 첫 페인트 전에 `<html data-splash="off">`로 정한다. 홈 화면 앱(PWA)은 `/`에서 시작한다. 동작 줄이기 설정이면 둘 다 없다. 다른 곳에 입장 애니메이션을 흩뿌리지 않는다.
 - 모바일 우선. 하단 탭(모바일)/상단 메뉴(데스크톱)는 `components/layout/Nav.tsx`.
 - 문구는 반말 아닌 해요체, 능동태. 버튼은 일어나는 일을 그대로 ("기록 저장", "남기기").
-- 로고는 모임 엠블럼(검정 바탕에 금색 호랑이, "BBOING FOOTBALL CLUB"). 원형으로 잘라낸 `public/logo.png`를 헤더와 링크 미리보기(OG)에 쓴다. 로고 파일을 손으로 고치지 말고 원본 PNG를 받아 `scripts/make-icons.mjs`로 전부 다시 만든다.
+- 로고는 모임 엠블럼(검정 바탕에 금색 호랑이, "BBOING FOOTBALL CLUB"). 원형으로 잘라낸 `public/logo.png`를 헤더와 경기 링크 미리보기(OG)에 쓰고, 첫 주소 미리보기는 `src/app/opengraph-image.jpg`(1200×630)다. 카톡은 `og:` 태그를 읽으므로 페이지에서 제목·설명을 바꿀 때는 `openGraph`에도 넣는다(경기 상세의 `withPreview`). 로고 파일을 손으로 고치지 말고 원본 PNG를 받아 `scripts/make-icons.mjs`로 전부 다시 만든다.
