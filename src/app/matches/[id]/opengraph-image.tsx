@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { ImageResponse } from "next/og";
 import { getMatchResult, isPlayed, MATCH_RESULT_LABEL, summarizeScorers } from "@/features/matches/schema";
 import { CLUB_NAME } from "@/lib/config";
-import { formatMatchDate } from "@/lib/utils";
+import { formatKickoffTime, formatMatchDate } from "@/lib/utils";
 import { getMatch } from "@/server/matches";
 
 export const alt = "경기 결과";
@@ -29,7 +29,13 @@ export default async function Image({ params }: { params: Promise<{ id: string }
   const [match, logo] = await Promise.all([getMatch(id), loadLogo()]);
 
   const meta = match
-    ? `${formatMatchDate(match.playedAt, { withYear: true })}${match.location ? `   ${match.location}` : ""}`
+    ? [
+        formatMatchDate(match.playedAt, { withYear: true }),
+        match.kickoffTime ? formatKickoffTime(match.kickoffTime) : null,
+        match.location,
+      ]
+        .filter(Boolean)
+        .join("   ")
     : "";
   const played = match !== null && isPlayed(match);
   const resultLabel = match && isPlayed(match) ? MATCH_RESULT_LABEL[getMatchResult(match)] : "경기 예정";

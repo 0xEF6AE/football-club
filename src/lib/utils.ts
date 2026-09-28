@@ -17,6 +17,18 @@ export function formatMatchDate(isoDate: string, options?: { withYear?: boolean 
   }).format(date);
 }
 
+/** 킥오프 "HH:mm" → "오전 7시", "오후 3시 30분". 형식이 이상하면 그대로 돌려준다. */
+export function formatKickoffTime(time: string) {
+  const parsed = /^(\d{2}):(\d{2})$/.exec(time);
+  if (!parsed) return time;
+  const hour = Number(parsed[1]);
+  const minute = Number(parsed[2]);
+  if (hour > 23 || minute > 59) return time;
+  const period = hour < 12 ? "오전" : "오후";
+  const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+  return minute === 0 ? `${period} ${hour12}시` : `${period} ${hour12}시 ${minute}분`;
+}
+
 /** "2026-09-27" → "27일 (토)". 월별로 묶인 목록 안에서 쓴다. */
 export function formatMatchDay(isoDate: string) {
   const date = new Date(`${isoDate}T00:00:00`);

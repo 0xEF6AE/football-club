@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
-import { Pencil, Trash, UserRoundPlus, Users } from "lucide-react";
+import { ChevronRight, Pencil, Trash, UserRoundPlus, Users } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -124,22 +125,29 @@ export function PlayerList() {
                     </li>
                   ) : (
                     <li key={player.id} className="flex items-center gap-2 py-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium">{player.name}</p>
-                        <p className="font-display mt-1 flex flex-wrap gap-1 text-xs tracking-wide">
-                          {player.positions.map((position, index) => (
-                            <span
-                              key={position}
-                              className={cn(
-                                "rounded px-1.5 py-0.5",
-                                index === 0 ? "bg-pitch text-on-pitch" : "bg-surface-2 text-muted",
-                              )}
-                            >
-                              {position}
-                            </span>
-                          ))}
-                        </p>
-                      </div>
+                      <Link
+                        href={`/players/${player.id}`}
+                        className="-my-1 -ml-2 flex min-w-0 flex-1 items-center gap-2 rounded-lg py-1 pl-2 pr-1 outline-none transition-colors hover:bg-surface-2/70 focus-visible:bg-surface-2/70"
+                        aria-label={`${player.name} 기록 보기`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium">{player.name}</p>
+                          <p className="font-display mt-1 flex flex-wrap gap-1 text-xs tracking-wide">
+                            {player.positions.map((position, index) => (
+                              <span
+                                key={position}
+                                className={cn(
+                                  "rounded px-1.5 py-0.5",
+                                  index === 0 ? "bg-pitch text-on-pitch" : "bg-surface-2 text-muted",
+                                )}
+                              >
+                                {position}
+                              </span>
+                            ))}
+                          </p>
+                        </div>
+                        <ChevronRight className="size-4 shrink-0 text-muted" aria-hidden />
+                      </Link>
                       {canEdit && (
                         <>
                           <Button

@@ -51,6 +51,7 @@ async function main() {
     {
       id: firstMatch,
       playedAt: "2026-09-20",
+      kickoffTime: "07:00",
       opponent: "FC 한강",
       ourScore: 3,
       theirScore: 1,
@@ -60,6 +61,7 @@ async function main() {
     {
       id: secondMatch,
       playedAt: "2026-09-27",
+      kickoffTime: "07:00",
       opponent: "성수 유나이티드",
       ourScore: 1,
       theirScore: 2,
@@ -69,6 +71,7 @@ async function main() {
     {
       id: upcomingMatch,
       playedAt: nextWeekday(0),
+      kickoffTime: "07:00",
       opponent: "망원 FC",
       ourScore: null,
       theirScore: null,

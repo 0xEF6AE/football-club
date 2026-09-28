@@ -1,5 +1,5 @@
 import { summarizeShapes } from "@/features/formations/schema";
-import { formatDateTime, formatMatchDate } from "@/lib/utils";
+import { formatDateTime, formatKickoffTime, formatMatchDate } from "@/lib/utils";
 import { getMatchResult, isPlayed, MATCH_RESULT_LABEL, type Match } from "./schema";
 
 /** 카톡방에 붙여 넣을 경기 요약. url이 있으면 마지막 줄에 링크를 붙인다. */
@@ -17,7 +17,9 @@ export function formatMatchText(match: Match, clubName: string, url?: string): s
     );
     if (goals.length > 0) lines.push(`득점: ${goals.join(", ")}`);
   } else {
-    lines.push(`${date} ${match.opponent}전 예정`);
+    // 예정 경기는 "10월 4일 (일) 오전 7시 망원 FC전 예정"처럼 시간까지 한 줄에.
+    const when = match.kickoffTime ? `${date} ${formatKickoffTime(match.kickoffTime)}` : date;
+    lines.push(`${when} ${match.opponent}전 예정`);
   }
 
   if (match.location) lines.push(`장소: ${match.location}`);

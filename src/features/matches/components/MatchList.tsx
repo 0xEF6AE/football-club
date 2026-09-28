@@ -7,7 +7,7 @@ import { ListSkeleton } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState } from "@/components/ui/States";
 import { AdminOnly } from "@/features/admin/components/AdminOnly";
 import { getErrorMessage } from "@/lib/api-client";
-import { cn, daysUntil, formatDday, formatMatchDate, formatMatchDay, formatMonth } from "@/lib/utils";
+import { cn, daysUntil, formatDday, formatKickoffTime, formatMatchDate, formatMatchDay, formatMonth } from "@/lib/utils";
 import { useMatches } from "../queries";
 import {
   getMatchResult,
@@ -84,7 +84,10 @@ function UpcomingRow({ match }: { match: Match }) {
         <div className="min-w-0 flex-1">
           <p className="truncate font-medium">{match.opponent}</p>
           <p className="flex gap-2 truncate text-xs text-muted">
-            <time dateTime={match.playedAt}>{formatMatchDate(match.playedAt)}</time>
+            <time dateTime={match.kickoffTime ? `${match.playedAt}T${match.kickoffTime}` : match.playedAt}>
+              {formatMatchDate(match.playedAt)}
+              {match.kickoffTime && ` ${formatKickoffTime(match.kickoffTime)}`}
+            </time>
             {match.location && <span className="truncate">{match.location}</span>}
           </p>
         </div>

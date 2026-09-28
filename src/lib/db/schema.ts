@@ -38,6 +38,8 @@ export const matches = sqliteTable(
     id: text("id").primaryKey(),
     /** YYYY-MM-DD */
     playedAt: text("played_at").notNull(),
+    /** 킥오프 시각 "HH:mm" (24시간). null이면 시간 미정. */
+    kickoffTime: text("kickoff_time"),
     opponent: text("opponent").notNull(),
     /** 둘 다 null이면 아직 안 한 경기(예정). 둘 다 있으면 결과가 기록된 경기. */
     ourScore: integer("our_score"),

@@ -43,7 +43,8 @@
       "Bash(awk '{print $7, $9}')",
       "Bash(awk '{print $1, $2}')",
       "Bash(awk '{print $1}')",
-      "Bash(git -c core.hooksPath=/dev/null commit -q -F -)"
+      "Bash(git -c core.hooksPath=/dev/null commit -q -F -)",
+      "Bash(git commit *)"
     ]
   }
 }

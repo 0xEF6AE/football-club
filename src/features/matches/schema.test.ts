@@ -13,6 +13,7 @@ import {
 const match = (overrides: Partial<Match>): Match => ({
   id: crypto.randomUUID(),
   playedAt: "2026-09-27",
+  kickoffTime: null,
   opponent: "상대",
   ourScore: 1,
   theirScore: 0,
@@ -89,6 +90,7 @@ describe("summarizeScorers", () => {
 describe("matchInputSchema", () => {
   const base = {
     playedAt: "2026-09-27",
+    kickoffTime: null,
     opponent: "FC 한강",
     ourScore: 2,
     theirScore: 1,
@@ -105,6 +107,16 @@ describe("matchInputSchema", () => {
     const local = matchInputSchema.safeParse({ ...upcomingBase, voteDeadline: "2026-09-26T21:00" });
     expect(local.success).toBe(false);
     if (!local.success) expect(local.error.issues[0].path).toEqual(["voteDeadline"]);
+  });
+
+  it("킥오프 시간은 HH:mm만 받고 빈 값은 null이 된다", () => {
+    const ok = matchInputSchema.safeParse({ ...base, kickoffTime: "07:00" });
+    expect(ok.success && ok.data.kickoffTime).toBe("07:00");
+    const empty = matchInputSchema.safeParse({ ...base, kickoffTime: "" });
+    expect(empty.success && empty.data.kickoffTime).toBeNull();
+    const bad = matchInputSchema.safeParse({ ...base, kickoffTime: "7시" });
+    expect(bad.success).toBe(false);
+    if (!bad.success) expect(bad.error.issues[0].path).toEqual(["kickoffTime"]);
   });
 
   it("정상 입력은 통과하고 빈 문자열 장소는 null이 된다", () => {

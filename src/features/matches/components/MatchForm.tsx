@@ -45,6 +45,7 @@ export function MatchForm({ initial, submitLabel, pending, onSubmit, cancelHref 
 
   const [hasResult, setHasResult] = useState(initial ? isPlayed(initial) : true);
   const [playedAt, setPlayedAt] = useState(initial?.playedAt ?? todayIsoDate());
+  const [kickoffTime, setKickoffTime] = useState(initial?.kickoffTime ?? "");
   const [opponent, setOpponent] = useState(initial?.opponent ?? "");
   const [ourScore, setOurScore] = useState(initial?.ourScore != null ? String(initial.ourScore) : "");
   const [theirScore, setTheirScore] = useState(initial?.theirScore != null ? String(initial.theirScore) : "");
@@ -73,6 +74,7 @@ export function MatchForm({ initial, submitLabel, pending, onSubmit, cancelHref 
     event.preventDefault();
     const { data, errors: fieldErrors } = validate(matchInputSchema, {
       playedAt,
+      kickoffTime,
       opponent,
       ourScore: hasResult ? ourScoreNumber : null,
       theirScore: hasResult ? toNumber(theirScore) : null,
@@ -117,7 +119,7 @@ export function MatchForm({ initial, submitLabel, pending, onSubmit, cancelHref 
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-[1fr_9rem_1fr]">
         <Field label="경기 날짜" htmlFor={`${id}-date`} error={errors.playedAt}>
           <Input
             id={`${id}-date`}
@@ -128,7 +130,17 @@ export function MatchForm({ initial, submitLabel, pending, onSubmit, cancelHref 
             required
           />
         </Field>
-        <Field label="상대팀" htmlFor={`${id}-opponent`} error={errors.opponent}>
+        <Field label="킥오프" htmlFor={`${id}-kickoff`} error={errors.kickoffTime} optional>
+          <Input
+            id={`${id}-kickoff`}
+            type="time"
+            step={300}
+            value={kickoffTime}
+            onChange={(e) => setKickoffTime(e.target.value)}
+            invalid={!!errors.kickoffTime}
+          />
+        </Field>
+        <Field label="상대팀" htmlFor={`${id}-opponent`} error={errors.opponent} className="col-span-2 sm:col-span-1">
           <Input
             id={`${id}-opponent`}
             value={opponent}

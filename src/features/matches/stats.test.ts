@@ -13,6 +13,7 @@ const goal = (scorer: [string, string] | null, assist: [string, string] | null =
 const match = (playedAt: string, goals: MatchGoal[], played = true): Match => ({
   id: crypto.randomUUID(),
   playedAt,
+  kickoffTime: null,
   opponent: "상대",
   ourScore: played ? goals.length : null,
   theirScore: played ? 0 : null,

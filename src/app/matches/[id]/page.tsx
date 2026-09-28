@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Container } from "@/components/ui/PageHeader";
 import { MatchDetail } from "@/features/matches/components/MatchDetail";
 import { getMatchResult, isPlayed, MATCH_RESULT_LABEL, summarizeScorers } from "@/features/matches/schema";
-import { formatDateTime, formatMatchDate } from "@/lib/utils";
+import { formatDateTime, formatKickoffTime, formatMatchDate } from "@/lib/utils";
 import { getMatch } from "@/server/matches";
 
 type Props = { params: Promise<{ id: string }> };
@@ -25,6 +25,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const title = `${date} vs ${match.opponent} 경기 예정`;
   const description = [
+    match.kickoffTime ? `${formatKickoffTime(match.kickoffTime)} 킥오프` : null,
     match.location,
     match.voteDeadline ? `투표 마감 ${formatDateTime(match.voteDeadline)}` : null,
     "참석 여부를 알려 주세요",

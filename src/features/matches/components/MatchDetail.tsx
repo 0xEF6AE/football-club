@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { Check, ChevronLeft, Copy, MapPin, Pencil, Trash } from "lucide-react";
+import { Check, ChevronLeft, Clock, Copy, MapPin, Pencil, Trash } from "lucide-react";
 import { Button, buttonStyles } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -20,9 +20,10 @@ import { usePlayers } from "@/features/players/queries";
 import { ApiError, getErrorMessage } from "@/lib/api-client";
 import { CLUB_NAME } from "@/lib/config";
 import { useCopy } from "@/lib/use-copy";
-import { cn, daysUntil, formatDateTime, formatDday, formatMatchDate } from "@/lib/utils";
+import { cn, daysUntil, formatDateTime, formatDday, formatKickoffTime, formatMatchDate } from "@/lib/utils";
 import { formatMatchText } from "../match-text";
-import { useDeleteMatch, useMatch } from "../queries";
+import { useDeleteMatch, useMatch, useMatches } from "../queries";
+import { buildHeadToHead, formatRecord } from "../stats";
 import {
   getMatchResult,
   isPlayed,
@@ -48,6 +49,12 @@ function PanelMeta({ match }: { match: Match }) {
   return (
     <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm text-on-pitch/75">
       <time dateTime={match.playedAt}>{formatMatchDate(match.playedAt, { withYear: true })}</time>
+      {match.kickoffTime && (
+        <span className="flex items-center gap-1">
+          <Clock className="size-3.5" aria-hidden />
+          {formatKickoffTime(match.kickoffTime)}
+        </span>
+      )}
       {match.location && (
         <span className="flex items-center gap-1">
           <MapPin className="size-3.5" aria-hidden />
@@ -55,6 +62,35 @@ function PanelMeta({ match }: { match: Match }) {
         </span>
       )}
     </div>
+  );
+}
+
+/**
+ * 이 상대와의 역대 전적 한 줄. 전광판 맨 아래에 붙는다.
+ * 결과가 있는 경기면 이 경기도 포함된 숫자라, 이 경기 하나뿐일 때는 말할 게 없어서 숨긴다.
+ */
+function HeadToHeadLine({ match }: { match: Match }) {
+  const matches = useMatches();
+  const record = useMemo(
+    () => (matches.data ? buildHeadToHead(matches.data, match.opponent) : null),
+    [matches.data, match.opponent],
+  );
+  if (!record) return null;
+  if (isPlayed(match) && record.played <= 1) return null;
+
+  return (
+    <p className="mt-3 text-center text-sm text-on-pitch/75" aria-label="상대전적">
+      {record.played === 0 ? (
+        "이 팀과는 첫 경기예요."
+      ) : (
+        <>
+          이 팀과 역대 <span className="font-display tracking-wide text-on-pitch">{formatRecord(record)}</span>
+          <span className="mx-1.5 text-on-pitch/40">|</span>
+          득 <span className="font-display text-on-pitch">{record.goalsFor}</span> 실{" "}
+          <span className="font-display text-on-pitch">{record.goalsAgainst}</span>
+        </>
+      )}
+    </p>
   );
 }
 
@@ -77,6 +113,7 @@ function ScorePanel({ match }: { match: Match & PlayedScores }) {
           {MATCH_RESULT_LABEL[result]}
         </span>
       </p>
+      <HeadToHeadLine match={match} />
     </section>
   );
 }
@@ -105,6 +142,7 @@ function UpcomingPanel({ match }: { match: Match }) {
           투표 마감 <time dateTime={match.voteDeadline}>{formatDateTime(match.voteDeadline)}</time>
         </p>
       )}
+      <HeadToHeadLine match={match} />
     </section>
   );
 }

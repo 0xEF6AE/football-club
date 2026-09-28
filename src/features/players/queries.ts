@@ -5,10 +5,16 @@ import { playersApi } from "./api";
 export const playerKeys = {
   all: ["players"] as const,
   list: () => [...playerKeys.all, "list"] as const,
+  stats: (id: string) => [...playerKeys.all, "stats", id] as const,
 };
 
 export function usePlayers() {
   return useQuery({ queryKey: playerKeys.list(), queryFn: playersApi.list });
+}
+
+/** 선수 개인 기록. 경기·참석·포메이션이 바뀌면 달라지므로 화면에 들어올 때마다 새로 받는다(기본 staleTime 0). */
+export function usePlayerStats(id: string) {
+  return useQuery({ queryKey: playerKeys.stats(id), queryFn: () => playersApi.stats(id) });
 }
 
 export function useCreatePlayer() {

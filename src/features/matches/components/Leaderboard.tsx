@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { Medal } from "lucide-react";
 import { Chip } from "@/components/ui/Chip";
@@ -102,7 +103,12 @@ export function Leaderboard() {
                 <tr key={stat.playerId}>
                   <td className="font-display py-3 text-muted">{ranks[index]}</td>
                   <td className="py-3 font-medium">
-                    {stat.name}
+                    <Link
+                      href={`/players/${stat.playerId}`}
+                      className="rounded-sm underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-pitch/40"
+                    >
+                      {stat.name}
+                    </Link>
                     {topGoals > 0 && stat.goals === topGoals && <Tag tone="amber">득점왕</Tag>}
                     {topAssists > 0 && stat.assists === topAssists && <Tag tone="pitch">도움왕</Tag>}
                   </td>

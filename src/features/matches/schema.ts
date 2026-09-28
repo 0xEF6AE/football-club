@@ -16,6 +16,14 @@ const score = z
   .min(0, "0 이상이어야 해요")
   .max(99, "99 이하여야 해요");
 
+/** <input type="time"> 값 "HH:mm". 빈 문자열은 null(시간 미정)로 정규화한다. */
+const kickoffTime = z
+  .string()
+  .regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/, "시간을 확인해 주세요")
+  .or(z.literal(""))
+  .nullable()
+  .transform((value) => (value ? value : null));
+
 export const matchGoalInputSchema = z.object({
   scorerId: z.string().nullable(),
   assistId: z.string().nullable(),
@@ -24,6 +32,7 @@ export const matchGoalInputSchema = z.object({
 export const matchInputSchema = z
   .object({
     playedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "경기 날짜를 선택해 주세요"),
+    kickoffTime,
     opponent: z.string().trim().min(1, "상대팀 이름을 입력해 주세요").max(30, "30자까지 가능해요"),
     /** 둘 다 null이면 아직 안 한(예정) 경기. 참석 투표만 받는다. */
     ourScore: score.nullable(),
@@ -60,6 +69,8 @@ export type MatchFormationRef = { id: string; name: string; shapes: FormationSha
 export type Match = {
   id: string;
   playedAt: string;
+  /** "HH:mm" 또는 null(미정) */
+  kickoffTime: string | null;
   opponent: string;
   ourScore: number | null;
   theirScore: number | null;
