@@ -8,8 +8,9 @@ import * as schema from "./schema";
  */
 function createDb() {
   const client = createClient({
-    url: process.env.DATABASE_URL ?? "file:local.db",
-    authToken: process.env.DATABASE_AUTH_TOKEN || undefined,
+    // 배포 화면에 붙여 넣을 때 끝에 줄바꿈·공백이 섞여도 동작하도록 잘라 낸다.
+    url: process.env.DATABASE_URL?.trim() || "file:local.db",
+    authToken: process.env.DATABASE_AUTH_TOKEN?.trim() || undefined,
   });
   return drizzle(client, { schema });
 }
