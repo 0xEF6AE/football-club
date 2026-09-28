@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { attendanceApi } from "@/features/attendance/api";
+import { attendanceKeys } from "@/features/attendance/queries";
+import { feedbackApi } from "@/features/feedback/api";
+import { feedbackKeys } from "@/features/feedback/queries";
+import { formationsApi } from "@/features/formations/api";
+import { formationKeys } from "@/features/formations/queries";
 import { Check, ChevronLeft, Clock, Copy, MapPin, Pencil, Trash } from "lucide-react";
 import { Button, buttonStyles } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -204,9 +211,24 @@ function MatchFormationPanel({ formation }: { formation: MatchFormationRef }) {
   );
 }
 
+/**
+ * 아래 섹션(참석·댓글·피드백·포메이션)은 경기 정보가 온 뒤에야 그려지므로, 그대로 두면 요청이 두 단계로 줄을 선다.
+ * 경기 정보와 동시에 미리 요청해 한 번의 대기로 끝나게 한다. 각 섹션의 훅은 같은 키라 캐시를 그대로 쓴다.
+ */
+function usePrefetchMatchSections(id: string) {
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    void queryClient.prefetchQuery({ queryKey: attendanceKeys.byMatch(id), queryFn: () => attendanceApi.list(id) });
+    void queryClient.prefetchQuery({ queryKey: attendanceKeys.comments(id), queryFn: () => attendanceApi.comments(id) });
+    void queryClient.prefetchQuery({ queryKey: feedbackKeys.byMatch(id), queryFn: () => feedbackApi.list(id) });
+    void queryClient.prefetchQuery({ queryKey: formationKeys.list(), queryFn: formationsApi.list });
+  }, [id, queryClient]);
+}
+
 export function MatchDetail({ id }: { id: string }) {
   const router = useRouter();
   const query = useMatch(id);
+  usePrefetchMatchSections(id);
   const remove = useDeleteMatch();
   const { copied, copy } = useCopy();
   const [confirming, setConfirming] = useState(false);

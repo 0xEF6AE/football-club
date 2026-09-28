@@ -8,15 +8,19 @@ import type { QuarterLineup } from "@/features/formations/schema";
 type MatchRow = typeof matches.$inferSelect;
 type JoinedRow = { match: MatchRow; formationName: string | null; formationQuarters: QuarterLineup[] | null };
 
-/** 여러 경기의 득점 기록을 한 번에 조회해 matchId별로 묶는다 (N+1 방지). */
-async function loadGoalsByMatch(matchIds: string[]): Promise<Map<string, MatchGoal[]>> {
+/**
+ * 득점 기록을 읽어 matchId별로 묶는다 (N+1 방지).
+ * matchIds가 null이면 전체를 읽는다. 경기 목록은 결국 모든 득점이 필요하므로, 경기 조회를 기다리지 않고
+ * 동시에 보내 DB 왕복을 한 번으로 줄이는 용도다 (DB가 원격이라 왕복 수가 곧 응답 시간).
+ */
+async function loadGoalsByMatch(matchIds: string[] | null): Promise<Map<string, MatchGoal[]>> {
   const grouped = new Map<string, MatchGoal[]>();
-  if (matchIds.length === 0) return grouped;
+  if (matchIds !== null && matchIds.length === 0) return grouped;
 
   const scorer = alias(players, "scorer");
   const assist = alias(players, "assist");
 
-  const rows = await db
+  const query = db
     .select({
       id: matchGoals.id,
       matchId: matchGoals.matchId,
@@ -28,8 +32,8 @@ async function loadGoalsByMatch(matchIds: string[]): Promise<Map<string, MatchGo
     .from(matchGoals)
     .leftJoin(scorer, eq(matchGoals.scorerId, scorer.id))
     .leftJoin(assist, eq(matchGoals.assistId, assist.id))
-    .where(inArray(matchGoals.matchId, matchIds))
     .orderBy(asc(matchGoals.sortOrder));
+  const rows = await (matchIds === null ? query : query.where(inArray(matchGoals.matchId, matchIds)));
 
   for (const { matchId, ...goal } of rows) {
     const list = grouped.get(matchId) ?? [];
@@ -47,8 +51,7 @@ function selectMatches() {
     .leftJoin(formations, eq(matches.formationId, formations.id));
 }
 
-async function hydrate(rows: JoinedRow[]): Promise<Match[]> {
-  const goalsByMatch = await loadGoalsByMatch(rows.map((r) => r.match.id));
+function hydrate(rows: JoinedRow[], goalsByMatch: Map<string, MatchGoal[]>): Match[] {
   return rows.map(({ match, formationName, formationQuarters }) => ({
     ...match,
     goals: goalsByMatch.get(match.id) ?? [],
@@ -60,14 +63,20 @@ async function hydrate(rows: JoinedRow[]): Promise<Match[]> {
 }
 
 export async function listMatches(): Promise<Match[]> {
-  const rows = await selectMatches().orderBy(desc(matches.playedAt), desc(matches.createdAt));
-  return hydrate(rows);
+  const [rows, goalsByMatch] = await Promise.all([
+    selectMatches().orderBy(desc(matches.playedAt), desc(matches.createdAt)),
+    loadGoalsByMatch(null),
+  ]);
+  return hydrate(rows, goalsByMatch);
 }
 
 export async function getMatch(id: string): Promise<Match | null> {
-  const rows = await selectMatches().where(eq(matches.id, id)).limit(1);
+  const [rows, goalsByMatch] = await Promise.all([
+    selectMatches().where(eq(matches.id, id)).limit(1),
+    loadGoalsByMatch([id]),
+  ]);
   if (rows.length === 0) return null;
-  const [match] = await hydrate(rows);
+  const [match] = hydrate(rows, goalsByMatch);
   return match;
 }
 

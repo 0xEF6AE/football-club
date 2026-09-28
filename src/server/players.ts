@@ -27,13 +27,13 @@ export async function getPlayer(id: string): Promise<Player | null> {
  * 계산은 features/players/stats.ts의 순수 함수가 하고, 여기서는 재료(경기, 응답, 포메이션 명단 포함 여부)만 모은다.
  */
 export async function getPlayerStats(id: string): Promise<PlayerStats | null> {
-  const player = await getPlayer(id);
-  if (!player) return null;
-
-  const [matches, attendance] = await Promise.all([
+  // DB가 원격이라 서로 기다릴 필요 없는 조회는 한꺼번에 보낸다.
+  const [player, matches, attendance] = await Promise.all([
+    getPlayer(id),
     listMatches(),
     db.select().from(matchAttendance).where(eq(matchAttendance.playerId, id)),
   ]);
+  if (!player) return null;
 
   // 경기에 붙인 포메이션의 어느 쿼터에든 이 선수가 있으면 그 경기는 출전으로 본다.
   const formationIds = [...new Set(matches.map((m) => m.formationId).filter((v): v is string => v !== null))];

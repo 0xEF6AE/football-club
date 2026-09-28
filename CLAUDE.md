@@ -54,6 +54,7 @@ scripts/make-icons.mjs  엠블럼 PNG 하나로 public/logo.png, src/app/icon.pn
 - **검증은 한 곳에서.** 입력 스키마는 `features/<domain>/schema.ts`에만 정의. 클라이언트는 `lib/form.ts`의 `validate()`, 서버는 `server/http.ts`의 `parseBody()`로 같은 스키마를 쓴다.
 - **서버 오류 형식.** `{ error: string, issues: { path, message }[] }`. 클라이언트는 `ApiError`로 받아 `errorsFromApi()`로 필드 오류에 매핑.
 - **Query key는 `queries.ts`의 `xxxKeys` 객체만 사용.** 변경 후 무효화 범위도 거기서 결정한다 (예: 선수 이름 변경 → matches도 무효화).
+- **속도.** DB(Turso)는 도쿄에 있고 Vercel 함수도 `vercel.json`의 `regions: ["hnd1"]`로 도쿄에 둔다. 둘이 떨어지면 쿼리마다 왕복이 붙으니 리전을 바꿀 때는 같이 옮긴다. 서버 함수에서 서로 기다릴 필요 없는 쿼리는 `Promise.all`로 한 번에 보낸다. 클라이언트는 앱 시작 시 경기·선수 목록을 미리 받고(`app/providers.tsx`), 화면 아래쪽 섹션이 쓰는 데이터는 상위 컴포넌트에서 미리 요청해 요청이 줄 서지 않게 한다(예: `MatchDetail`의 `usePrefetchMatchSections`). 기본 staleTime은 1분.
 - **페이지는 Server Component, 상태·훅이 필요한 곳만 `"use client"`.** 페이지에서 데이터를 미리 가져오지 않고 클라이언트 훅이 가져온다 (로딩·오류·빈 상태는 컴포넌트 안에서 처리).
 - **익명 피드백.** 작성자를 알 수 있는 정보(IP, UA, 쿠키, 세션)는 받지도 저장하지도 않는다. 이 규칙을 깨는 기능은 만들지 않는다.
 - **참석 투표.** 상태는 참석/불참/보류(`yes`/`no`/`maybe`, `features/attendance/schema.ts`). 마감은 `matches.voteDeadline`(ISO)이고 마감 판정은 `isVoteClosed()` 하나를 클라이언트·서버가 같이 쓴다. 마감 뒤 명단 수정은 비밀번호가 걸린 배포에서 관리자만. 투표 아래 댓글(`match_comments`)은 "왜 불참/보류인지" 알리는 글이라 선수 이름을 밝히며, 익명 피드백과 다르다. 댓글은 마감 뒤에도 남길 수 있다.
