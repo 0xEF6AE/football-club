@@ -10,7 +10,7 @@ import { feedbackApi } from "@/features/feedback/api";
 import { feedbackKeys } from "@/features/feedback/queries";
 import { formationsApi } from "@/features/formations/api";
 import { formationKeys } from "@/features/formations/queries";
-import { CalendarX, Check, ChevronLeft, Clock, Copy, MapPin, Pencil, RotateCcw, Trash } from "lucide-react";
+import { CalendarX, Check, ChevronLeft, Clock, Copy, MapPin, Pencil, RotateCcw, Trash, Vote } from "lucide-react";
 import { Button, buttonStyles } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -27,8 +27,8 @@ import { usePlayers } from "@/features/players/queries";
 import { ApiError, getErrorMessage } from "@/lib/api-client";
 import { CLUB_NAME } from "@/lib/config";
 import { useCopy } from "@/lib/use-copy";
-import { cn, daysUntil, formatDateTime, formatDday, formatKickoffTime, formatMatchDate } from "@/lib/utils";
-import { formatMatchText } from "../match-text";
+import { cn, daysUntil, formatDday, formatKickoffTime, formatMatchDate } from "@/lib/utils";
+import { formatDeadlineLead, formatKickoff, formatMatchText, formatVoteDeadline } from "../match-text";
 import { useCancelMatch, useDeleteMatch, useMatch, useMatches } from "../queries";
 import { buildHeadToHead, formatRecord } from "../stats";
 import {
@@ -56,14 +56,15 @@ const RESULT_PILL: Record<MatchResult, string> = {
 const panelStyles =
   "rounded-xl bg-pitch-deep px-5 py-6 text-on-pitch shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]";
 
-function PanelMeta({ match }: { match: Match }) {
+/** 전광판 맨 위 한 줄. 예정 경기는 킥오프를 아래 일정표에 따로 적으므로 빼도 된다. */
+function PanelMeta({ match, showKickoff = true }: { match: Match; showKickoff?: boolean }) {
   return (
     <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm text-on-pitch/75">
       <time dateTime={match.playedAt}>{formatMatchDate(match.playedAt, { withYear: true })}</time>
-      {match.kickoffTime && (
+      {showKickoff && match.kickoffTime && (
         <span className="flex items-center gap-1">
           <Clock className="size-3.5" aria-hidden />
-          {formatKickoffTime(match.kickoffTime)}
+          킥오프 {formatKickoffTime(match.kickoffTime)}
         </span>
       )}
       {match.location && (
@@ -135,19 +136,24 @@ function UpcomingPanel({ match }: { match: Match }) {
   const overdue = isAwaitingResult(match);
   const closed = isVoteClosed(match);
   const deadline = effectiveVoteDeadline(match);
+  const lead = formatDeadlineLead(match);
+  const kickoff = formatKickoff(match);
   const dim = overdue || match.cancelled;
   return (
     <section aria-label={match.cancelled ? "취소된 경기" : "경기 예정"} className={panelStyles}>
-      <PanelMeta match={match} />
+      <PanelMeta match={match} showKickoff={false} />
       <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
         <p className="text-center text-sm font-medium leading-tight md:text-base">{CLUB_NAME}</p>
-        {/* 킥오프 시간이 있으면 남은 일:시간:분, 없으면 D-day */}
+        {/* 킥오프 시간이 있으면 남은 일:시간:분(투표 마감과 헷갈리지 않게 "킥오프까지"를 붙인다), 없으면 D-day */}
         {!match.cancelled && match.kickoffTime ? (
-          <KickoffCountdown
-            match={match}
-            variant="board"
-            className={cn("text-4xl sm:text-5xl md:text-6xl", dim ? "text-on-pitch/40" : "text-amber")}
-          />
+          <div className="flex flex-col items-center gap-2">
+            <span className="text-xs font-medium text-on-pitch/60">킥오프까지</span>
+            <KickoffCountdown
+              match={match}
+              variant="board"
+              className={cn("text-4xl sm:text-5xl md:text-6xl", dim ? "text-on-pitch/40" : "text-amber")}
+            />
+          </div>
         ) : (
           <p className={cn("font-display text-5xl leading-none md:text-6xl", dim ? "text-on-pitch/40" : "text-amber")}>
             {match.cancelled ? "취소" : formatDday(days)}
@@ -162,15 +168,37 @@ function UpcomingPanel({ match }: { match: Match }) {
             : overdue
               ? "결과 입력 대기"
               : closed
-                ? "참석 투표 마감"
-                : "참석 투표 진행 중"}
+                ? "참석 투표 마감됨"
+                : "참석 투표 중"}
         </span>
       </p>
-      {!closed && (
-        <p className="mt-2 text-center text-xs text-on-pitch/70">
-          투표 마감 <time dateTime={deadline}>{formatDateTime(deadline)}</time>
-        </p>
-      )}
+      {/* 두 시각을 이름표·아이콘을 달리해 시간 순으로 나란히 둔다 */}
+      <dl className="mx-auto mt-4 grid w-fit grid-cols-[auto_auto] items-baseline gap-x-3 gap-y-1.5 text-sm">
+        {!match.cancelled && !overdue && (
+          <>
+            <dt className="flex items-center gap-1.5 self-center text-on-pitch/60">
+              <Vote className="size-3.5" aria-hidden />
+              투표 마감
+            </dt>
+            <dd className={cn(closed && "text-on-pitch/50")}>
+              <time dateTime={deadline}>{formatVoteDeadline(match)}</time>
+              {/* 지난 마감은 위 배지("참석 투표 마감")가 말해 주니 흐리게만 */}
+              {!closed && lead && <span className="ml-1.5 text-xs text-on-pitch/60">{lead}</span>}
+            </dd>
+          </>
+        )}
+        <dt className="flex items-center gap-1.5 self-center text-on-pitch/60">
+          <Clock className="size-3.5" aria-hidden />
+          킥오프
+        </dt>
+        <dd>
+          {kickoff ? (
+            <time dateTime={`${match.playedAt}T${match.kickoffTime}`}>{kickoff}</time>
+          ) : (
+            <span className="text-on-pitch/60">시간 미정</span>
+          )}
+        </dd>
+      </dl>
       <HeadToHeadLine match={match} />
     </section>
   );

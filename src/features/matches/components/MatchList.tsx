@@ -112,19 +112,20 @@ function UpcomingRow({ match }: { match: Match }) {
             {match.location && <span className="truncate">{match.location}</span>}
           </p>
         </div>
-        {/* 킥오프까지 남은 일:시간:분 (지났으면 00:00:00) */}
-        <KickoffCountdown
-          match={match}
-          variant="inline"
-          className={cn("shrink-0 text-sm", overdue ? "text-muted" : "text-fg")}
-        />
+        {/* 킥오프까지 남은 일:시간:분 (지났으면 00:00:00). 옆 투표 배지와 헷갈리지 않게 이름을 붙인다. */}
+        {match.kickoffTime && (
+          <span className="flex shrink-0 flex-col items-end">
+            <span className="text-[10px] leading-tight text-muted">킥오프까지</span>
+            <KickoffCountdown match={match} variant="inline" className={cn("text-sm", overdue ? "text-muted" : "text-fg")} />
+          </span>
+        )}
         <span
           className={cn(
             "shrink-0 rounded-full px-2.5 py-1 text-xs font-medium",
             overdue || closed ? "bg-surface-2 text-muted" : "bg-pitch/10 text-pitch-ink",
           )}
         >
-          {overdue ? "결과 입력 대기" : closed ? "투표 마감" : "참석 투표"}
+          {overdue ? "결과 입력 대기" : closed ? "투표 마감됨" : "투표 중"}
         </span>
       </Link>
     </li>

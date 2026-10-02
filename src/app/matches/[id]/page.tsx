@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { Container } from "@/components/ui/PageHeader";
 import { MatchDetail } from "@/features/matches/components/MatchDetail";
-import { effectiveVoteDeadline, getMatchResult, isPlayed, MATCH_RESULT_LABEL, summarizeScorers } from "@/features/matches/schema";
+import { formatVoteDeadline } from "@/features/matches/match-text";
+import { getMatchResult, isPlayed, MATCH_RESULT_LABEL, summarizeScorers } from "@/features/matches/schema";
 import { CLUB_NAME } from "@/lib/config";
-import { formatDateTime, formatKickoffTime, formatMatchDate } from "@/lib/utils";
+import { formatKickoffTime, formatMatchDate } from "@/lib/utils";
 import { getMatch } from "@/server/matches";
 
 type Props = { params: Promise<{ id: string }> };
@@ -41,9 +42,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const title = `${date} vs ${match.opponent} 경기 예정`;
   const description = [
-    match.kickoffTime ? `${formatKickoffTime(match.kickoffTime)} 킥오프` : null,
+    match.kickoffTime ? `킥오프 ${formatKickoffTime(match.kickoffTime)}` : null,
     match.location,
-    `투표 마감 ${formatDateTime(effectiveVoteDeadline(match))}`,
+    `투표 마감 ${formatVoteDeadline(match)}`,
     "참석 여부를 알려 주세요",
   ]
     .filter(Boolean)

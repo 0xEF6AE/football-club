@@ -65,10 +65,10 @@ export function SecondCallPanel({ match, maybe, no, none, attending, guests }: S
 
       <div className="flex flex-col gap-1.5">
         <p className="text-sm">
-          추가 모집 마감 <b className="font-medium">{formatDateTime(new Date(closeAt).toISOString())}</b>
+          추가 참석 마감 <b className="font-medium">{formatDateTime(new Date(closeAt).toISOString())}</b>
           {!match.lateJoinDeadline && <span className="text-xs text-muted"> (기본: 킥오프 2시간 뒤)</span>}
         </p>
-        <div role="group" aria-label="추가 모집 마감 정하기" className="flex flex-wrap gap-1.5">
+        <div role="group" aria-label="추가 참석 마감 정하기" className="flex flex-wrap gap-1.5">
           {presets.map((p) => (
             <Chip key={p.label} size="sm" pressed={match.lateJoinDeadline === new Date(p.at).toISOString()} onClick={() => apply(p.at)} disabled={setDeadline.isPending}>
               {p.label}
@@ -98,7 +98,7 @@ export function SecondCallPanel({ match, maybe, no, none, attending, guests }: S
         </Button>
       )}
       <p className="text-xs text-muted">
-        추가 모집이 끝나면 포메이션 화면에서 &lsquo;참석 투표에서 가져오기&rsquo;를 다시 눌러 주세요. {CLUB_NAME} 단톡방에 붙이면 링크 미리보기도 함께 떠요.
+        추가 참석을 다 받으면 포메이션 화면에서 &lsquo;참석 투표에서 가져오기&rsquo;를 다시 눌러 주세요. {CLUB_NAME} 단톡방에 붙이면 링크 미리보기도 함께 떠요.
       </p>
     </section>
   );

@@ -17,7 +17,10 @@ export function formatMatchDate(isoDate: string, options?: { withYear?: boolean 
   }).format(date);
 }
 
-/** 킥오프 "HH:mm" → "오전 7시", "오후 3시 30분". 형식이 이상하면 그대로 돌려준다. */
+/**
+ * "HH:mm" → "오전 7시", "오후 3시 30분". 형식이 이상하면 그대로 돌려준다.
+ * 킥오프와 마감 시각이 같은 표기를 쓰도록 formatDateTime도 이걸 쓴다. 자정은 "오전 0시"(오전 12시는 낮으로 읽기 쉽다).
+ */
 export function formatKickoffTime(time: string) {
   const parsed = /^(\d{2}):(\d{2})$/.exec(time);
   if (!parsed) return time;
@@ -25,7 +28,7 @@ export function formatKickoffTime(time: string) {
   const minute = Number(parsed[2]);
   if (hour > 23 || minute > 59) return time;
   const period = hour < 12 ? "오전" : "오후";
-  const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+  const hour12 = hour === 12 ? 12 : hour % 12;
   return minute === 0 ? `${period} ${hour12}시` : `${period} ${hour12}시 ${minute}분`;
 }
 
@@ -44,21 +47,15 @@ export function formatMonth(isoDate: string) {
 }
 
 /**
- * ISO 타임스탬프 → "9월 27일 (토) 21:00". 마감 시각처럼 "언제"가 중요한 값에 쓴다.
+ * ISO 타임스탬프 → "9월 27일 (토) 오후 9시". 마감 시각처럼 "언제"가 중요한 값에 쓴다.
+ * 킥오프("오전 7시")와 표기가 달라 헷갈리지 않도록 시각 부분은 formatKickoffTime과 같다.
  * 모임이 한국에 있으니 서버(배포 환경은 UTC일 수 있다)와 브라우저가 같은 시각을 보이도록 KST로 고정한다.
  */
 export function formatDateTime(isoTimestamp: string) {
   const date = new Date(isoTimestamp);
   if (Number.isNaN(date.getTime())) return isoTimestamp;
-  return new Intl.DateTimeFormat("ko-KR", {
-    month: "long",
-    day: "numeric",
-    weekday: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone: "Asia/Seoul",
-  }).format(date);
+  const kst = new Date(date.getTime() + 9 * 3_600_000).toISOString(); // "YYYY-MM-DDTHH:mm..." (한국 시각)
+  return `${formatMatchDate(kst.slice(0, 10))} ${formatKickoffTime(kst.slice(11, 16))}`;
 }
 
 /** ISO 타임스탬프 → <input type="datetime-local"> 값(브라우저 로컬 시각, "YYYY-MM-DDTHH:mm") */

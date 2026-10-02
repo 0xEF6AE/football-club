@@ -16,7 +16,7 @@ export const PUT = withErrorHandling(async (request, { params }: IdContext) => {
   if (deadline) {
     const at = new Date(deadline).getTime();
     const issue = (message: string) => new HttpError(400, "입력값을 확인해 주세요", [{ path: "deadline", message }]);
-    if (at <= new Date(effectiveVoteDeadline(match)).getTime()) throw issue("추가 모집 마감은 투표 마감 뒤여야 해요");
+    if (at <= new Date(effectiveVoteDeadline(match)).getTime()) throw issue("추가 참석 마감은 투표 마감 뒤여야 해요");
     if (at > resultDueAt(match)) throw issue("킥오프 2시간 뒤까지만 받을 수 있어요");
   }
   return json(await setLateJoinDeadline(id, deadline));

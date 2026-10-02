@@ -17,6 +17,7 @@ import type { Player } from "@/features/players/schema";
 import { CLUB_NAME } from "@/lib/config";
 import { errorsFromApi, FORM_ERROR_KEY, validate, type FieldErrors } from "@/lib/form";
 import { cn, formatKickoffTime, fromDateTimeLocal, toDateTimeLocal, todayIsoDate } from "@/lib/utils";
+import { formatDeadlineLead, formatKickoff, formatVoteDeadline } from "../match-text";
 import { isPlayed, matchInputSchema, type Match, type MatchInput } from "../schema";
 
 type GoalDraft = { key: string; scorerId: string; assistId: string };
@@ -33,7 +34,7 @@ const KICKOFF_OPTIONS: SelectOption[] = [
   }),
 ];
 
-/** 경기 전날 21:00 (브라우저 로컬). 투표 마감의 흔한 기본값. */
+/** 경기 전날 오후 9시 (브라우저 로컬). 투표 마감의 흔한 기본값. */
 function eveningBefore(playedAt: string): string {
   const date = new Date(`${playedAt}T21:00:00`);
   if (Number.isNaN(date.getTime())) return "";
@@ -41,7 +42,7 @@ function eveningBefore(playedAt: string): string {
   return toDateTimeLocal(date.toISOString());
 }
 
-/** 경기 전날 정오 (브라우저 로컬). 이른 아침 경기에서 라인업을 하루 전에 짜고 싶을 때. */
+/** 경기 전날 오후 12시 (브라우저 로컬). 이른 아침 경기에서 라인업을 하루 전에 짜고 싶을 때. */
 function noonBefore(playedAt: string): string {
   const date = new Date(`${playedAt}T12:00:00`);
   if (Number.isNaN(date.getTime())) return "";
@@ -123,6 +124,16 @@ export function MatchForm({ initial, submitLabel, pending, onSubmit, cancelHref 
     }
   };
 
+  // 투표 마감 미리보기: 브라우저마다 다른 datetime-local 표기 대신 킥오프와 같은 표기로 둘을 나란히 보여 준다.
+  const deadlineDraft = { playedAt, kickoffTime: kickoffTime || null, voteDeadline: fromDateTimeLocal(voteDeadline) };
+  const kickoffText = formatKickoff(deadlineDraft);
+  const lead = formatDeadlineLead(deadlineDraft);
+  const deadlineHint = deadlineDraft.voteDeadline
+    ? `투표 마감: ${formatVoteDeadline(deadlineDraft)}${lead ? ` (${lead})` : ""}`
+    : kickoffText
+      ? `비워 두면 킥오프 시각(${kickoffText})에 마감돼요. 마감 뒤에는 '늦게라도 참석'만 킥오프 2시간 뒤까지 받아요.`
+      : "비워 두면 경기 당일 오전 0시에 마감돼요. 마감 뒤에는 '늦게라도 참석'만 받아요.";
+
   // 전광판 위 점수 칸: 비어 있으면 흐린 "-"(0과 헷갈리지 않게)를 보여 주고, 올리거나 누르면 amber 테두리.
   const scoreInput =
     "font-display h-16 text-center text-4xl border-transparent bg-on-pitch/10 placeholder:text-on-pitch/30 hover:border-on-pitch/25 focus-visible:border-amber focus-visible:ring-amber/30";
@@ -156,7 +167,7 @@ export function MatchForm({ initial, submitLabel, pending, onSubmit, cancelHref 
             required
           />
         </Field>
-        <Field label="킥오프" htmlFor={`${id}-kickoff`} error={errors.kickoffTime} optional>
+        <Field label="킥오프 시간" htmlFor={`${id}-kickoff`} error={errors.kickoffTime} optional>
           <Select
             id={`${id}-kickoff`}
             value={kickoffTime}
@@ -237,14 +248,10 @@ export function MatchForm({ initial, submitLabel, pending, onSubmit, cancelHref 
 
       {!hasResult && (
         <Field
-          label="참석 투표 마감"
+          label="참석 투표 마감 시각"
           htmlFor={`${id}-deadline`}
           error={errors.voteDeadline}
-          hint={
-            kickoffTime
-              ? "비워 두면 킥오프 시각에 마감돼요. 마감 뒤에는 '늦게라도 참석'만 킥오프 2시간 뒤까지 받아요."
-              : "비워 두면 경기 당일 0시에 마감돼요. 마감 뒤에는 '늦게라도 참석'만 받아요."
-          }
+          hint={deadlineHint}
           optional
         >
           <div className="flex flex-wrap items-center gap-2">
@@ -257,10 +264,10 @@ export function MatchForm({ initial, submitLabel, pending, onSubmit, cancelHref 
               className="sm:max-w-xs"
             />
             <Button variant="secondary" onClick={() => setVoteDeadline(noonBefore(playedAt))} disabled={!playedAt}>
-              전날 12:00
+              전날 오후 12시
             </Button>
             <Button variant="secondary" onClick={() => setVoteDeadline(eveningBefore(playedAt))} disabled={!playedAt}>
-              전날 21:00
+              전날 오후 9시
             </Button>
             {voteDeadline && (
               <Button variant="ghost" className="text-muted" onClick={() => setVoteDeadline("")}>

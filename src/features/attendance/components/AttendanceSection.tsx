@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useReducer, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Ban, Clock, KeyRound } from "lucide-react";
+import { Ban, KeyRound, Vote } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { Input } from "@/components/ui/Input";
@@ -19,11 +19,12 @@ import {
   resultDueAt,
   type Match,
 } from "@/features/matches/schema";
+import { formatVoteDeadline } from "@/features/matches/match-text";
 import { PlayerPicker } from "@/features/players/components/PlayerPicker";
 import { playerKeys, usePlayers } from "@/features/players/queries";
 import { getErrorMessage } from "@/lib/api-client";
 import { readStorage, STORAGE_KEYS, writeStorage } from "@/lib/storage";
-import { cn, formatDateTime, formatKickoffTime } from "@/lib/utils";
+import { cn, formatDateTime } from "@/lib/utils";
 import { isPinRejection, isValidPin, readPins, writePins } from "../pin";
 import { useAttendance, useGuests, useRemoveAttendance, useSetAttendance } from "../queries";
 import { ATTENDANCE_LABEL, ATTENDANCE_STATUSES, ATTENDANCE_TONE, type Attendance, type AttendanceStatus } from "../schema";
@@ -181,12 +182,8 @@ export function AttendanceSection({ match }: { match: Match }) {
   const vote = (status: AttendanceStatus, quarters: number[] | null = status === "yes" ? (myRow?.quarters ?? null) : null) =>
     set.mutate({ matchId, input: { playerId: me, status, quarters, pin: credential.pin } }, withPin);
 
-  // 마감 안내 문구 (언제까지 받는지)
-  const deadlineText = match.voteDeadline
-    ? formatDateTime(deadline)
-    : match.kickoffTime
-      ? `킥오프(${formatKickoffTime(match.kickoffTime)})`
-      : `경기 당일 0시(${formatDateTime(deadline)})`;
+  // 마감 안내 문구 (언제까지 받는지). 킥오프와 헷갈리지 않게 경기 상세·카톡 글과 같은 표기.
+  const deadlineText = formatVoteDeadline(match);
 
   const note = !me
     ? "이름을 고르면 참석 여부를 누를 수 있어요."
@@ -226,16 +223,16 @@ export function AttendanceSection({ match }: { match: Match }) {
       ) : (
         !played && (
           <p className={cn("flex items-center gap-1.5 text-sm", closed ? "text-muted" : "text-fg")} role="status">
-            <Clock className="size-4 shrink-0" aria-hidden />
+            <Vote className="size-4 shrink-0" aria-hidden />
             {/* flex 간격이 "시각"과 "에" 사이를 벌리지 않도록 문장을 한 덩어리로 감싼다 */}
             {closed ? (
               <span>
-                <time dateTime={deadline}>{deadlineText}</time>에 마감됐어요
+                투표는 <time dateTime={deadline}>{deadlineText}</time>에 마감됐어요
                 {lateWindow && ` · 추가 참석은 ${formatDateTime(new Date(lateCloseAt).toISOString())}까지 받아요`}
               </span>
             ) : (
               <span>
-                <time dateTime={deadline}>{deadlineText}</time>까지 받아요
+                투표는 <time dateTime={deadline}>{deadlineText}</time>까지 받아요
               </span>
             )}
           </p>
