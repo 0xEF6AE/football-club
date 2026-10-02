@@ -38,7 +38,11 @@ export default async function Image({ params }: { params: Promise<{ id: string }
         .join("   ")
     : "";
   const played = match !== null && isPlayed(match);
-  const resultLabel = match && isPlayed(match) ? MATCH_RESULT_LABEL[getMatchResult(match)] : "경기 예정";
+  const resultLabel = match?.cancelled
+    ? "경기 취소"
+    : match && isPlayed(match)
+      ? MATCH_RESULT_LABEL[getMatchResult(match)]
+      : "경기 예정";
   const scorers = match ? summarizeScorers(match.goals) : "";
 
   return new ImageResponse(

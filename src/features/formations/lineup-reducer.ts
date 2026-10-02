@@ -2,12 +2,19 @@ import { z } from "zod";
 import type { Player } from "@/features/players/schema";
 import { buildAutoLineup } from "./auto-lineup";
 import {
+  availabilitySchema,
+  canPlayQuarter,
   FORMATION_SHAPES,
+  formationGuestSchema,
+  normalizeQuarterList,
   QUARTER_COUNT,
+  type FormationGuest,
   type FormationShape,
   type LineupAssignments,
+  type PlayerAvailability,
   type QuarterLineup,
   type SavedFormation,
+  guestAsPlayer,
 } from "./schema";
 import { getSlots, normalizeAssignments } from "./templates";
 
@@ -16,6 +23,8 @@ import { getSlots, normalizeAssignments } from "./templates";
  * 한 경기는 1~4쿼터로 나뉘고 쿼터마다 라인업(모양 + 배치)을 따로 짠다. 참석 선수는 네 쿼터가 공유한다.
  * 컴포넌트는 "탭" 이벤트만 보내고, 선택 → 교체/배치/해제 규칙은 전부 여기서 결정한다.
  * 자리 조작(모양 바꾸기, 탭, 비우기, 자동 배치)은 모두 activeQuarter에만 적용된다.
+ * 참석자마다 뛸 수 있는 쿼터(늦참·조퇴, availability)가 있고, 자동 배치는 그 쿼터에만 세운다.
+ * 용병(guests)은 선수 목록에 없는 사람이라 상태에 함께 들고 다니며, 액션의 players에는 용병까지 합친 명단을 넘긴다.
  * 순수 함수라 UI 없이도 테스트할 수 있다.
  */
 export type LineupSelection = { kind: "slot"; slotId: string } | { kind: "bench"; playerId: string };
@@ -25,6 +34,10 @@ export type LineupState = {
   /** 지금 편집 중인 쿼터 (0 = 1쿼터) */
   activeQuarter: number;
   attendingIds: string[];
+  /** 참석자별 뛸 수 있는 쿼터. 없는 사람은 네 쿼터 모두. */
+  availability: PlayerAvailability;
+  /** 이 라인업에 넣은 용병 */
+  guests: FormationGuest[];
   selection: LineupSelection | null;
   /** 불러온 저장본 id. 저장 시 "덮어쓰기" 대상. */
   loadedId: string | null;
@@ -35,6 +48,8 @@ export type LineupAction =
   | { type: "setShape"; shape: FormationShape }
   | { type: "toggleAttending"; playerId: string }
   | { type: "setAllAttending"; playerIds: string[] }
+  /** 경기 참석 투표에서 가져오기: 참석자, 뛸 수 있는 쿼터, 용병을 한꺼번에 바꾼다 */
+  | { type: "importMatch"; playerIds: string[]; availability: PlayerAvailability; guests: FormationGuest[] }
   /** 지금 쿼터만 자동 배치. 다른 쿼터에서 적게 뛴 선수를 먼저 세운다. */
   | { type: "autoAssign"; players: Player[] }
   /** 1쿼터부터 4쿼터까지 차례로 자동 배치. 앞 쿼터에서 쉰 선수가 뒤 쿼터에 먼저 들어간다. */
@@ -60,9 +75,38 @@ export function createInitialLineup(players: Player[]): LineupState {
     quarters: Array.from({ length: QUARTER_COUNT }, () => emptyQuarter()),
     activeQuarter: 0,
     attendingIds: players.map((p) => p.id),
+    availability: {},
+    guests: [],
     selection: null,
     loadedId: null,
   };
+}
+
+/** 이 사람이 이 쿼터에 뛸 수 있는지 (늦참·조퇴) */
+export function isAvailable(state: Pick<LineupState, "availability">, playerId: string, quarter: number): boolean {
+  return canPlayQuarter(state.availability[playerId], quarter);
+}
+
+/** 쿼터별 GK를 본 수 */
+export function countKeeperDuty(quarters: readonly QuarterLineup[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const quarter of quarters) {
+    for (const slot of getSlots(quarter.shape)) {
+      const playerId = quarter.assignments[slot.id];
+      if (slot.position === "GK" && playerId) counts.set(playerId, (counts.get(playerId) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+
+/** availability에서 참석자가 아닌 사람·제한 없는 사람은 지운다 */
+function cleanAvailability(availability: PlayerAvailability, attending: ReadonlySet<string>): PlayerAvailability {
+  const result: PlayerAvailability = {};
+  for (const [id, quarters] of Object.entries(availability)) {
+    const normalized = normalizeQuarterList(quarters);
+    if (attending.has(id) && normalized) result[id] = normalized;
+  }
+  return result;
 }
 
 export function activeLineup(state: LineupState): QuarterLineup {
@@ -141,16 +185,32 @@ export function lineupReducer(state: LineupState, action: LineupAction): LineupS
       return {
         ...state,
         attendingIds: [...attending],
+        availability: cleanAvailability(state.availability, attending),
         quarters: normalizeQuarters(state.quarters, attending),
         selection: null,
       };
     }
 
     case "setAllAttending": {
-      const attending = new Set(action.playerIds);
+      // 용병은 "전체 선택/해제"와 상관없이 남긴다 (용병은 그 경기 참석자로 온 사람).
+      const attending = new Set([...action.playerIds, ...state.guests.map((g) => g.id)]);
       return {
         ...state,
         attendingIds: [...attending],
+        availability: cleanAvailability(state.availability, attending),
+        quarters: normalizeQuarters(state.quarters, attending),
+        selection: null,
+      };
+    }
+
+    case "importMatch": {
+      const guests = action.guests;
+      const attending = new Set([...action.playerIds, ...guests.map((g) => g.id)]);
+      return {
+        ...state,
+        attendingIds: [...attending],
+        guests,
+        availability: cleanAvailability(action.availability, attending),
         quarters: normalizeQuarters(state.quarters, attending),
         selection: null,
       };
@@ -158,25 +218,39 @@ export function lineupReducer(state: LineupState, action: LineupAction): LineupS
 
     case "autoAssign": {
       const attending = new Set(state.attendingIds);
-      const candidates = action.players.filter((p) => attending.has(p.id));
-      const others = state.quarters.filter((_, i) => i !== state.activeQuarter);
+      const q = state.activeQuarter;
+      const candidates = action.players.filter((p) => attending.has(p.id) && isAvailable(state, p.id, q));
+      const others = state.quarters.filter((_, i) => i !== q);
       const { shape } = activeLineup(state);
       return withAssignments(
         state,
-        buildAutoLineup(getSlots(shape), candidates, { appearances: countAppearances(others) }),
+        buildAutoLineup(getSlots(shape), candidates, {
+          appearances: countAppearances(others),
+          keeperDuty: countKeeperDuty(others),
+        }),
       );
     }
 
     case "autoAssignAll": {
-      const attending = new Set(state.attendingIds);
-      const candidates = action.players.filter((p) => attending.has(p.id));
+      // 1쿼터부터 차례로: 덜 뛴 사람·GK를 덜 본 사람이 먼저, 같으면 뒤에 뛸 기회가 적은(조퇴) 사람이 먼저.
+      const attending = action.players.filter((p) => state.attendingIds.includes(p.id));
       const built: QuarterLineup[] = [];
-      for (const quarter of state.quarters) {
+      state.quarters.forEach((quarter, q) => {
+        const remaining = new Map(
+          attending.map((p) => [
+            p.id,
+            state.quarters.filter((_, later) => later > q && isAvailable(state, p.id, later)).length,
+          ]),
+        );
         built.push({
           shape: quarter.shape,
-          assignments: buildAutoLineup(getSlots(quarter.shape), candidates, { appearances: countAppearances(built) }),
+          assignments: buildAutoLineup(
+            getSlots(quarter.shape),
+            attending.filter((p) => isAvailable(state, p.id, q)),
+            { appearances: countAppearances(built), keeperDuty: countKeeperDuty(built), remaining },
+          ),
         });
-      }
+      });
       return { ...state, quarters: built, selection: null };
     }
 
@@ -213,11 +287,15 @@ export function lineupReducer(state: LineupState, action: LineupAction): LineupS
 
     case "load": {
       const { formation, validPlayerIds } = action;
-      const attending = new Set(formation.attendingIds.filter((id) => validPlayerIds.has(id)));
+      const guests = formation.guests ?? [];
+      const valid = new Set([...validPlayerIds, ...guests.map((g) => g.id)]);
+      const attending = new Set(formation.attendingIds.filter((id) => valid.has(id)));
       return {
         quarters: normalizeQuarters(formation.quarters, attending),
         activeQuarter: 0,
         attendingIds: [...attending],
+        availability: cleanAvailability(formation.availability ?? {}, attending),
+        guests: guests.filter((g) => attending.has(g.id)),
         selection: null,
         loadedId: formation.id,
       };
@@ -235,34 +313,53 @@ export const lineupDraftSchema = z.object({
     .length(QUARTER_COUNT),
   activeQuarter: z.number().int().min(0).max(QUARTER_COUNT - 1),
   attendingIds: z.array(z.string()),
+  // 예전 임시 저장본에는 없어서 기본값을 둔다
+  availability: availabilitySchema.catch({}).default({}),
+  guests: z.array(formationGuestSchema).catch([]).default([]),
   loadedId: z.string().nullable(),
 });
 
 export type LineupDraft = z.infer<typeof lineupDraftSchema>;
 
 export function toDraft(state: LineupState): LineupDraft {
-  const { quarters, activeQuarter, attendingIds, loadedId } = state;
-  return { quarters, activeQuarter, attendingIds, loadedId };
+  const { quarters, activeQuarter, attendingIds, availability, guests, loadedId } = state;
+  return { quarters, activeQuarter, attendingIds, availability, guests, loadedId };
 }
 
 /** 임시 저장본 복원. 형식이 깨졌거나(옛 단일 라인업 형식 포함) 사라진 선수는 걸러내고, 복원할 게 없으면 null. */
 export function restoreLineup(players: Player[], raw: unknown): LineupState | null {
   const parsed = lineupDraftSchema.safeParse(raw);
   if (!parsed.success) return null;
-  const valid = new Set(players.map((p) => p.id));
+  const guests = parsed.data.guests;
+  const valid = new Set([...players.map((p) => p.id), ...guests.map((g) => g.id)]);
   const attending = new Set(parsed.data.attendingIds.filter((id) => valid.has(id)));
   return {
     quarters: normalizeQuarters(parsed.data.quarters, attending),
     activeQuarter: parsed.data.activeQuarter,
     attendingIds: [...attending],
+    availability: cleanAvailability(parsed.data.availability, attending),
+    guests: guests.filter((g) => attending.has(g.id)),
     selection: null,
     loadedId: parsed.data.loadedId,
   };
 }
 
-/** 참석했지만 지금 쿼터에 자리가 없는 선수 */
+/** 참석했고 지금 쿼터에 뛸 수 있는데 자리가 없는 사람 */
 export function selectBench(state: LineupState, players: Player[]): Player[] {
   const assigned = new Set(Object.values(activeLineup(state).assignments));
   const attending = new Set(state.attendingIds);
-  return players.filter((p) => attending.has(p.id) && !assigned.has(p.id));
+  return players.filter(
+    (p) => attending.has(p.id) && !assigned.has(p.id) && isAvailable(state, p.id, state.activeQuarter),
+  );
+}
+
+/** 참석했지만 지금 쿼터에는 못 뛰는 사람 (늦참·조퇴) */
+export function selectUnavailable(state: LineupState, players: Player[]): Player[] {
+  const attending = new Set(state.attendingIds);
+  return players.filter((p) => attending.has(p.id) && !isAvailable(state, p.id, state.activeQuarter));
+}
+
+/** 선수 목록 + 이 라인업의 용병을 한 명단으로 (액션의 players, 화면의 이름 찾기에 쓴다) */
+export function rosterOf(state: Pick<LineupState, "guests">, players: Player[]): Player[] {
+  return [...players, ...state.guests.map(guestAsPlayer)];
 }

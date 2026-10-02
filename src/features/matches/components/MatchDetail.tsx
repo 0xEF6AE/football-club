@@ -10,7 +10,7 @@ import { feedbackApi } from "@/features/feedback/api";
 import { feedbackKeys } from "@/features/feedback/queries";
 import { formationsApi } from "@/features/formations/api";
 import { formationKeys } from "@/features/formations/queries";
-import { Check, ChevronLeft, Clock, Copy, MapPin, Pencil, Trash } from "lucide-react";
+import { CalendarX, Check, ChevronLeft, Clock, Copy, MapPin, Pencil, RotateCcw, Trash } from "lucide-react";
 import { Button, buttonStyles } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -21,7 +21,7 @@ import { FeedbackSection } from "@/features/feedback/components/FeedbackSection"
 import { Chip } from "@/components/ui/Chip";
 import { Pitch } from "@/features/formations/components/Pitch";
 import { useFormations } from "@/features/formations/queries";
-import { quarterLabel, summarizeShapes } from "@/features/formations/schema";
+import { guestAsPlayer, quarterLabel, summarizeShapes } from "@/features/formations/schema";
 import { getSlots } from "@/features/formations/templates";
 import { usePlayers } from "@/features/players/queries";
 import { ApiError, getErrorMessage } from "@/lib/api-client";
@@ -29,9 +29,10 @@ import { CLUB_NAME } from "@/lib/config";
 import { useCopy } from "@/lib/use-copy";
 import { cn, daysUntil, formatDateTime, formatDday, formatKickoffTime, formatMatchDate } from "@/lib/utils";
 import { formatMatchText } from "../match-text";
-import { useDeleteMatch, useMatch, useMatches } from "../queries";
+import { useCancelMatch, useDeleteMatch, useMatch, useMatches } from "../queries";
 import { buildHeadToHead, formatRecord } from "../stats";
 import {
+  effectiveVoteDeadline,
   getMatchResult,
   isAwaitingResult,
   isPlayed,
@@ -42,6 +43,7 @@ import {
   type MatchResult,
   type PlayedScores,
 } from "../schema";
+import { CancelMatchDialog } from "./CancelMatchDialog";
 import { MatchNotFound } from "./MatchEditor";
 
 const RESULT_PILL: Record<MatchResult, string> = {
@@ -131,24 +133,32 @@ function UpcomingPanel({ match }: { match: Match }) {
   // 킥오프 2시간 뒤(시간 미정이면 다음 날)부터 결과 입력 대기. 관리자 알림과 같은 기준.
   const overdue = isAwaitingResult(match);
   const closed = isVoteClosed(match);
+  const deadline = effectiveVoteDeadline(match);
+  const dim = overdue || match.cancelled;
   return (
-    <section aria-label="경기 예정" className={panelStyles}>
+    <section aria-label={match.cancelled ? "취소된 경기" : "경기 예정"} className={panelStyles}>
       <PanelMeta match={match} />
       <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
         <p className="text-center text-sm font-medium leading-tight md:text-base">{CLUB_NAME}</p>
-        <p className={cn("font-display text-5xl leading-none md:text-6xl", overdue ? "text-on-pitch/60" : "text-amber")}>
-          {formatDday(days)}
+        <p className={cn("font-display text-5xl leading-none md:text-6xl", dim ? "text-on-pitch/40" : "text-amber")}>
+          {match.cancelled ? "취소" : formatDday(days)}
         </p>
         <p className="text-center text-sm font-medium leading-tight md:text-base">{match.opponent}</p>
       </div>
       <p className="mt-4 flex justify-center">
         <span className="rounded-full bg-on-pitch/15 px-3 py-1 text-sm font-medium">
-          {overdue ? "결과 입력 대기" : closed ? "참석 투표 마감" : "참석 투표 진행 중"}
+          {match.cancelled
+            ? `경기 취소${match.cancelReason ? ` · ${match.cancelReason}` : ""}`
+            : overdue
+              ? "결과 입력 대기"
+              : closed
+                ? "참석 투표 마감"
+                : "참석 투표 진행 중"}
         </span>
       </p>
-      {match.voteDeadline && !overdue && (
+      {!closed && (
         <p className="mt-2 text-center text-xs text-on-pitch/70">
-          투표 마감 <time dateTime={match.voteDeadline}>{formatDateTime(match.voteDeadline)}</time>
+          투표 마감 <time dateTime={deadline}>{formatDateTime(deadline)}</time>
         </p>
       )}
       <HeadToHeadLine match={match} />
@@ -162,7 +172,11 @@ function MatchFormationPanel({ formation }: { formation: MatchFormationRef }) {
   const formations = useFormations();
   const [quarter, setQuarter] = useState(0);
   const saved = formations.data?.find((f) => f.id === formation.id);
-  const playersById = useMemo(() => new Map((players.data ?? []).map((p) => [p.id, p])), [players.data]);
+  // 저장된 라인업의 용병도 이름이 보이게 함께 넣는다.
+  const playersById = useMemo(
+    () => new Map([...(players.data ?? []), ...(saved?.guests ?? []).map(guestAsPlayer)].map((p) => [p.id, p])),
+    [players.data, saved?.guests],
+  );
   const lineup = saved?.quarters[quarter];
 
   return (
@@ -222,6 +236,7 @@ function usePrefetchMatchSections(id: string) {
   useEffect(() => {
     void queryClient.prefetchQuery({ queryKey: attendanceKeys.byMatch(id), queryFn: () => attendanceApi.list(id) });
     void queryClient.prefetchQuery({ queryKey: attendanceKeys.comments(id), queryFn: () => attendanceApi.comments(id) });
+    void queryClient.prefetchQuery({ queryKey: attendanceKeys.guests(id), queryFn: () => attendanceApi.guests(id) });
     void queryClient.prefetchQuery({ queryKey: feedbackKeys.byMatch(id), queryFn: () => feedbackApi.list(id) });
     void queryClient.prefetchQuery({ queryKey: formationKeys.list(), queryFn: formationsApi.list });
   }, [id, queryClient]);
@@ -234,6 +249,8 @@ export function MatchDetail({ id }: { id: string }) {
   const remove = useDeleteMatch();
   const { copied, copy } = useCopy();
   const [confirming, setConfirming] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const restore = useCancelMatch();
 
   if (query.isPending) return <DetailSkeleton />;
 
@@ -272,6 +289,33 @@ export function MatchDetail({ id }: { id: string }) {
               <Pencil className="size-4" aria-hidden />
               <span className="hidden sm:inline">{played ? "수정" : "결과 입력"}</span>
             </Link>
+            {!played &&
+              (match.cancelled ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  aria-label="취소 되돌리기"
+                  title="취소 되돌리기"
+                  className="w-9 px-0 sm:w-auto sm:px-3"
+                  pending={restore.isPending}
+                  onClick={() => restore.mutate({ id, input: { cancelled: false, reason: null } })}
+                >
+                  {!restore.isPending && <RotateCcw className="size-4" aria-hidden />}
+                  <span className="hidden sm:inline">취소 되돌리기</span>
+                </Button>
+              ) : (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  aria-label="경기 취소"
+                  title="경기 취소 (우천 등)"
+                  className="w-9 px-0 sm:w-auto sm:px-3"
+                  onClick={() => setCancelling(true)}
+                >
+                  <CalendarX className="size-4" aria-hidden />
+                  <span className="hidden sm:inline">경기 취소</span>
+                </Button>
+              ))}
             <Button
               variant="danger"
               size="sm"
@@ -320,6 +364,8 @@ export function MatchDetail({ id }: { id: string }) {
       <AttendanceSection match={match} />
 
       {played && <FeedbackSection matchId={id} match={match} />}
+
+      <CancelMatchDialog matchId={id} open={cancelling} onClose={() => setCancelling(false)} />
 
       <ConfirmDialog
         open={confirming}

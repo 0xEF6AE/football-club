@@ -39,7 +39,7 @@ export const matchInputSchema = z
     theirScore: score.nullable(),
     location: optionalText(50, "장소는 50자까지 가능해요"),
     memo: optionalText(1000, "메모는 1000자까지 가능해요"),
-    /** 참석 투표 마감 시각(ISO, UTC). null이면 마감 없음. */
+    /** 참석 투표 마감 시각(ISO, UTC). null이면 킥오프 시각(미정이면 경기 당일 0시)에 마감. */
     voteDeadline: z.iso.datetime({ message: "마감 시각을 확인해 주세요" }).nullable(),
     /** 그날 사용한 저장된 포메이션 */
     formationId: z.string().nullable(),
@@ -52,6 +52,15 @@ export const matchInputSchema = z
   .refine((m) => m.ourScore !== null || m.goals.length === 0, {
     message: "결과가 없는 예정 경기에는 득점을 기록할 수 없어요",
     path: ["goals"],
+  })
+  // 득점 기록이 점수보다 많으면 득점왕 집계가 부풀려진다. (적은 건 괜찮다: 득점자를 모르는 골)
+  .refine((m) => m.ourScore === null || m.goals.length <= m.ourScore, {
+    message: "득점 기록이 우리 팀 점수보다 많아요",
+    path: ["goals"],
+  })
+  .refine((m) => m.voteDeadline === null || new Date(m.voteDeadline).getTime() <= latestDeadline(m), {
+    message: "투표 마감은 킥오프 전이어야 해요 (킥오프 미정이면 경기 날 안에)",
+    path: ["voteDeadline"],
   });
 
 export type MatchGoalInput = z.infer<typeof matchGoalInputSchema>;
@@ -79,6 +88,9 @@ export type Match = {
   voteDeadline: string | null;
   formationId: string | null;
   formation: MatchFormationRef | null;
+  /** 우천·인원 부족 등으로 취소된 경기 */
+  cancelled: boolean;
+  cancelReason: string | null;
   goals: MatchGoal[];
   createdAt: string;
 };
@@ -100,21 +112,64 @@ export const RESULT_DUE_HOURS = 2;
  * 목록·상세의 "결과 입력 대기" 표시와 관리자 알림이 모두 이 판정을 쓴다.
  */
 export function isAwaitingResult(
-  match: Pick<Match, "playedAt" | "kickoffTime" | "ourScore" | "theirScore">,
+  match: Pick<Match, "playedAt" | "kickoffTime" | "ourScore" | "theirScore"> & { cancelled?: boolean },
   now: Date = new Date(),
 ): boolean {
-  if (isPlayed(match)) return false;
-  const dueAt = match.kickoffTime
-    ? new Date(`${match.playedAt}T${match.kickoffTime}:00+09:00`).getTime() + RESULT_DUE_HOURS * 3_600_000
-    : new Date(`${match.playedAt}T00:00:00+09:00`).getTime() + 24 * 3_600_000;
+  if (match.cancelled || isPlayed(match)) return false;
+  const dueAt = resultDueAt(match);
   return !Number.isNaN(dueAt) && now.getTime() >= dueAt;
 }
 
+/** 결과 입력 대기가 시작되는 시각(ms): 킥오프 RESULT_DUE_HOURS시간 뒤, 미정이면 경기 다음 날 0시 (한국 시간). "늦게라도 참석"도 이때 닫힌다. */
+export function resultDueAt(match: Pick<Match, "playedAt" | "kickoffTime">): number {
+  return match.kickoffTime
+    ? new Date(`${match.playedAt}T${match.kickoffTime}:00+09:00`).getTime() + RESULT_DUE_HOURS * 3_600_000
+    : new Date(`${match.playedAt}T00:00:00+09:00`).getTime() + 24 * 3_600_000;
+}
+
 /** 참석 투표가 마감됐는지. 마감 시각이 없으면 계속 열려 있다. 클라이언트와 서버가 같은 판정을 쓴다. */
-export function isVoteClosed(match: Pick<Match, "voteDeadline">, now: Date = new Date()): boolean {
-  if (match.voteDeadline === null) return false;
-  const deadline = new Date(match.voteDeadline).getTime();
+type VoteTarget = Pick<Match, "playedAt" | "kickoffTime" | "voteDeadline" | "ourScore" | "theirScore"> & {
+  cancelled?: boolean;
+};
+
+const DAY_MS = 24 * 3_600_000;
+const kstMidnight = (date: string) => new Date(`${date}T00:00:00+09:00`).getTime();
+
+/** 킥오프 시각(ms). 킥오프 미정이면 null */
+export function kickoffAt(match: Pick<Match, "playedAt" | "kickoffTime">): number | null {
+  if (!match.kickoffTime) return null;
+  const at = new Date(`${match.playedAt}T${match.kickoffTime}:00+09:00`).getTime();
+  return Number.isNaN(at) ? null : at;
+}
+
+/** 직접 정하는 마감이 늦어도 되는 한계: 킥오프, 미정이면 경기 날 끝 */
+function latestDeadline(match: Pick<Match, "playedAt" | "kickoffTime">): number {
+  return kickoffAt(match) ?? kstMidnight(match.playedAt) + DAY_MS;
+}
+
+/**
+ * 실제로 적용되는 투표 마감(ISO). 따로 정하지 않으면 킥오프 시각, 킥오프도 미정이면 경기 당일 0시(한국 시간).
+ * 그래서 마감을 깜빡해도 끝난 경기에 참석이 바뀌지 않는다.
+ */
+export function effectiveVoteDeadline(match: Pick<Match, "playedAt" | "kickoffTime" | "voteDeadline">): string {
+  if (match.voteDeadline) return match.voteDeadline;
+  return new Date(kickoffAt(match) ?? kstMidnight(match.playedAt)).toISOString();
+}
+
+/** 참석 투표가 마감됐는지. 취소됐거나 결과가 나온 경기도 마감. 클라이언트와 서버가 같은 판정을 쓴다. */
+export function isVoteClosed(match: VoteTarget, now: Date = new Date()): boolean {
+  if (match.cancelled || isPlayed(match)) return true;
+  const deadline = new Date(effectiveVoteDeadline(match)).getTime();
   return !Number.isNaN(deadline) && deadline <= now.getTime();
+}
+
+/**
+ * 마감 뒤에도 "늦게라도 참석"은 받는 기간: 마감 뒤 ~ 결과 입력 대기 전(킥오프 2시간 뒤, 미정이면 다음 날 0시).
+ * 불참·보류였다가 오게 된 사람이 스스로 알릴 수 있게 한다. 불참·보류로 바꾸는 건 이 기간에도 안 된다.
+ */
+export function canJoinLate(match: VoteTarget, now: Date = new Date()): boolean {
+  if (match.cancelled || isPlayed(match)) return false;
+  return isVoteClosed(match, now) && !isAwaitingResult(match, now);
 }
 
 export type MatchResult = "win" | "draw" | "loss";
@@ -156,16 +211,25 @@ export function summarizeRecord(matches: Match[]): SeasonRecord {
 }
 
 /**
- * 예정 경기(가까운 날짜부터)와 지난 경기(최신순)로 나눈다.
- * 입력은 서버 정렬(최신순)을 그대로 쓰므로 played는 순서를 유지한다.
+ * 예정 경기(가까운 날짜부터)와 끝난 경기(결과가 있거나 취소됨, 최신순)로 나눈다.
+ * 입력은 서버 정렬(최신순)을 그대로 쓰므로 finished는 순서를 유지한다.
  */
-export function splitMatches(matches: Match[]): { upcoming: Match[]; played: Match[] } {
+export function splitMatches(matches: Match[]): { upcoming: Match[]; finished: Match[] } {
   const upcoming: Match[] = [];
-  const played: Match[] = [];
-  for (const match of matches) (isPlayed(match) ? played : upcoming).push(match);
+  const finished: Match[] = [];
+  for (const match of matches) (isPlayed(match) || match.cancelled ? finished : upcoming).push(match);
   upcoming.sort((a, b) => a.playedAt.localeCompare(b.playedAt));
-  return { upcoming, played };
+  return { upcoming, finished };
 }
+
+/** 경기 취소 사유 고르기용 */
+export const CANCEL_REASONS = ["우천", "인원 부족", "상대팀 사정", "구장 사정"] as const;
+
+export const cancelInputSchema = z.object({
+  cancelled: z.boolean(),
+  reason: optionalText(30, "사유는 30자까지 가능해요"),
+});
+export type CancelInput = z.infer<typeof cancelInputSchema>;
 
 /** 득점자별 골 수를 "이무성 2, 장상준" 형태로 요약 */
 export function summarizeScorers(goals: MatchGoal[]): string {

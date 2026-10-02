@@ -27,12 +27,22 @@ import {
   createInitialLineup,
   lineupReducer,
   restoreLineup,
+  rosterOf,
   selectBench,
+  selectUnavailable,
   toDraft,
 } from "../lineup-reducer";
 import { formatQuartersText } from "../lineup-text";
 import { useFormations } from "../queries";
-import { FORMATION_SHAPES, QUARTER_COUNT, quarterLabel, type SavedFormation } from "../schema";
+import {
+  FORMATION_SHAPES,
+  formatQuarters,
+  isGuestId,
+  QUARTER_COUNT,
+  quarterLabel,
+  type PlayerAvailability,
+  type SavedFormation,
+} from "../schema";
 import { getSlots } from "../templates";
 import { FormationViewer } from "./FormationViewer";
 import { Pitch } from "./Pitch";
@@ -121,12 +131,16 @@ export function FormationBuilder({ players, initialFormation = null }: Formation
     writeStorage(STORAGE_KEYS.lineupDraft, toDraft(state));
   }, [state]);
 
-  const playersById = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
+  // 선수 + 이 라인업의 용병. 자동 배치·이름 찾기·벤치 모두 이 명단으로 한다.
+  const roster = useMemo(() => rosterOf({ guests: state.guests }, players), [state.guests, players]);
+  const playersById = useMemo(() => new Map(roster.map((p) => [p.id, p])), [roster]);
   const validPlayerIds = useMemo(() => new Set(players.map((p) => p.id)), [players]);
+  const availabilityTag = (id: string) => formatQuarters(state.availability[id]);
 
   const active = activeLineup(state);
   const slots = getSlots(active.shape);
-  const bench = selectBench(state, players);
+  const bench = selectBench(state, roster);
+  const unavailable = selectUnavailable(state, roster);
   const attending = new Set(state.attendingIds);
   const filledCount = Object.values(active.assignments).filter(Boolean).length;
   const appearances = countAppearances(state.quarters);
@@ -137,27 +151,49 @@ export function FormationBuilder({ players, initialFormation = null }: Formation
   const selectedSlotPlayer = selectedSlot ? playersById.get(active.assignments[selectedSlot.id] ?? "") : undefined;
   const selectedBenchId = selection?.kind === "bench" ? selection.playerId : null;
 
-  const lineupText = formatQuartersText({ quarters: state.quarters, attendingIds: state.attendingIds, playersById });
+  const lineupText = formatQuartersText({
+    quarters: state.quarters,
+    attendingIds: state.attendingIds,
+    playersById,
+    availability: state.availability,
+  });
 
   /** 참석 선수를 적게 뛴 순으로 (같으면 등록 순). 벤치 시간을 고르게 나누는 데 참고한다. */
-  const attendingPlayers = players
+  const attendingPlayers = roster
     .filter((p) => attending.has(p.id))
     .map((p) => ({ player: p, count: appearances.get(p.id) ?? 0 }))
     .sort((a, b) => a.count - b.count);
 
-  /** 예정 경기의 참석 응답에서 "참석"인 선수만 참석자로 채운다. */
+  /**
+   * 예정 경기의 참석 투표에서 가져온다: "참석"인 선수(마감 후 참석 포함), 각자 뛸 수 있는 쿼터, 그 경기의 용병.
+   * 자동 배치는 이 쿼터 정보를 따른다.
+   */
   const importAttendance = async (matchId: string) => {
     const match = upcoming.find((m) => m.id === matchId);
     if (!match) return;
     setImporting(true);
     try {
-      const list = await queryClient.fetchQuery({
-        queryKey: attendanceKeys.byMatch(matchId),
-        queryFn: () => attendanceApi.list(matchId),
+      const [list, guests] = await Promise.all([
+        queryClient.fetchQuery({ queryKey: attendanceKeys.byMatch(matchId), queryFn: () => attendanceApi.list(matchId) }),
+        queryClient.fetchQuery({ queryKey: attendanceKeys.guests(matchId), queryFn: () => attendanceApi.guests(matchId) }),
+      ]);
+      const yes = list.filter((a) => a.status === "yes" && validPlayerIds.has(a.playerId));
+      const availability: PlayerAvailability = {};
+      for (const row of yes) if (row.quarters) availability[row.playerId] = row.quarters;
+      for (const guest of guests) if (guest.quarters) availability[guest.id] = guest.quarters;
+      dispatch({
+        type: "importMatch",
+        playerIds: yes.map((a) => a.playerId),
+        availability,
+        guests: guests.map(({ id, name, positions }) => ({ id, name, positions })),
       });
-      const ids = list.filter((a) => a.status === "yes").map((a) => a.playerId);
-      dispatch({ type: "setAllAttending", playerIds: ids });
-      setImportNote(`${formatMatchDate(match.playedAt)} ${match.opponent}전 참석 ${ids.length}명을 가져왔어요.`);
+      const limited = Object.keys(availability).length;
+      setImportNote(
+        `${formatMatchDate(match.playedAt)} ${match.opponent}전 참석 ${yes.length}명` +
+          (guests.length > 0 ? `, 용병 ${guests.length}명` : "") +
+          "을 가져왔어요." +
+          (limited > 0 ? ` 늦참·조퇴 ${limited}명은 뛸 수 있는 쿼터에만 배치해요.` : ""),
+      );
     } catch (error) {
       setImportNote(getErrorMessage(error));
     } finally {
@@ -271,7 +307,10 @@ export function FormationBuilder({ players, initialFormation = null }: Formation
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 id="attending-heading" className="text-sm font-medium">
               참석 <span className="font-display">{attending.size}</span>
-              <span className="text-muted"> / {players.length}명</span>
+              <span className="text-muted">
+                {" "}
+                / {players.length}명{state.guests.length > 0 && ` + 용병 ${state.guests.length}명`}
+              </span>
             </h2>
             <div className="flex gap-1">
               <Button
@@ -286,7 +325,7 @@ export function FormationBuilder({ players, initialFormation = null }: Formation
                 size="sm"
                 variant="ghost"
                 onClick={() => dispatch({ type: "setAllAttending", playerIds: [] })}
-                disabled={attending.size === 0}
+                disabled={attending.size === state.guests.filter((g) => attending.has(g.id)).length}
               >
                 전체 해제
               </Button>
@@ -317,15 +356,18 @@ export function FormationBuilder({ players, initialFormation = null }: Formation
           )}
 
           <div role="group" aria-label="참석 선수" className="flex flex-wrap gap-2">
-            {players.map((player) => (
+            {roster.map((player) => (
               <Chip
                 key={player.id}
                 size="sm"
                 pressed={attending.has(player.id)}
                 onClick={() => dispatch({ type: "toggleAttending", playerId: player.id })}
+                className={cn(isGuestId(player.id) && "border-dashed")}
               >
                 {player.name}
+                {isGuestId(player.id) && <span className="text-xs opacity-80">용병</span>}
                 <span className="font-display text-xs opacity-70">{player.positions[0]}</span>
+                {availabilityTag(player.id) && <span className="text-xs opacity-80">{availabilityTag(player.id)}</span>}
               </Chip>
             ))}
           </div>
@@ -336,7 +378,7 @@ export function FormationBuilder({ players, initialFormation = null }: Formation
             <Button
               variant="accent"
               size="lg"
-              onClick={() => dispatch({ type: "autoAssignAll", players })}
+              onClick={() => dispatch({ type: "autoAssignAll", players: roster })}
               disabled={attending.size === 0}
             >
               <WandSparkles className="size-4" aria-hidden />
@@ -345,7 +387,7 @@ export function FormationBuilder({ players, initialFormation = null }: Formation
             <Button
               variant="secondary"
               size="lg"
-              onClick={() => dispatch({ type: "autoAssign", players })}
+              onClick={() => dispatch({ type: "autoAssign", players: roster })}
               disabled={attending.size === 0}
             >
               {quarterLabel(state.activeQuarter)}만 배치
@@ -356,7 +398,8 @@ export function FormationBuilder({ players, initialFormation = null }: Formation
             </Button>
           </div>
           <p className="text-xs text-muted">
-            4쿼터 자동 배치는 앞 쿼터에서 쉰 선수를 다음 쿼터에 먼저 세워 출전 시간을 고르게 나눠요.
+            4쿼터 자동 배치는 덜 뛴 사람부터 세워 출전 시간을 고르게 나누고, 골키퍼는 GK가 되는 사람끼리 돌아가며 맡겨요.
+            늦참·조퇴는 뛸 수 있는 쿼터에만 세워요.
           </p>
           {state.activeQuarter > 0 && (
             <Button
@@ -378,7 +421,7 @@ export function FormationBuilder({ players, initialFormation = null }: Formation
           {attending.size === 0 ? (
             <p className="text-sm text-muted">참석 선수를 먼저 골라 주세요.</p>
           ) : bench.length === 0 ? (
-            <p className="text-sm text-muted">참석 선수 모두 자리가 있어요.</p>
+            <p className="text-sm text-muted">이 쿼터에 뛸 수 있는 사람은 모두 자리가 있어요.</p>
           ) : (
             <div role="group" aria-label="벤치 선수" className="flex flex-wrap gap-2">
               {bench.map((player) => (
@@ -390,10 +433,17 @@ export function FormationBuilder({ players, initialFormation = null }: Formation
                   onClick={() => dispatch({ type: "tapBench", playerId: player.id })}
                 >
                   {player.name}
+                  {isGuestId(player.id) && <span className="text-xs opacity-80">용병</span>}
                   <span className="font-display text-xs opacity-70">{player.positions.join(" ")}</span>
                 </Chip>
               ))}
             </div>
+          )}
+          {unavailable.length > 0 && (
+            <p className="text-xs text-muted">
+              이 쿼터에 못 뛰는 사람:{" "}
+              {unavailable.map((p) => `${p.name}(${availabilityTag(p.id)})`).join(", ")}
+            </p>
           )}
         </section>
 
@@ -409,6 +459,7 @@ export function FormationBuilder({ players, initialFormation = null }: Formation
                   className="flex items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-1 text-sm"
                 >
                   {player.name}
+                  {availabilityTag(player.id) && <span className="text-xs text-muted">{availabilityTag(player.id)}</span>}
                   <span
                     className={cn(
                       "font-display text-xs",

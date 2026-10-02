@@ -55,3 +55,14 @@ export function useDeleteMatch() {
     },
   });
 }
+
+export function useCancelMatch() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: matchesApi.setCancelled,
+    onSuccess: (match) => {
+      queryClient.setQueryData(matchKeys.detail(match.id), match);
+      return queryClient.invalidateQueries({ queryKey: matchKeys.list() });
+    },
+  });
+}

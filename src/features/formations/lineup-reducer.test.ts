@@ -7,7 +7,9 @@ import {
   createInitialLineup,
   lineupReducer,
   restoreLineup,
+  rosterOf,
   selectBench,
+  selectUnavailable,
   toDraft,
   type LineupState,
 } from "./lineup-reducer";
@@ -15,12 +17,20 @@ import { QUARTER_COUNT, type SavedFormation } from "./schema";
 
 const player = (id: string, positions: Position[]): Player => ({ id, name: id, positions, hasPin: false, createdAt: "" });
 
+// 4-2-3-1 열한 자리에 딱 맞는 필드 10명 + 골키퍼 2명.
+// 두 번째 골키퍼(extra)는 GK만 하는 사람이라 필드로 돌리지 않으므로, 자기 차례가 아니면 벤치에 남는다.
 const players = [
   player("gk", ["GK"]),
+  player("lb", ["LB"]),
   player("cb", ["CB"]),
-  player("st", ["ST"]),
+  player("cb2", ["CB"]),
+  player("rb", ["RB"]),
+  player("cdm", ["CDM"]),
+  player("cdm2", ["CDM"]),
+  player("lw", ["LW"]),
   player("cam", ["CAM"]),
-  // 두 번째 골키퍼: GK 자리는 하나뿐이고 GK는 다른 자리로 대체되지 않아 자동 배치 후 반드시 벤치에 남는다.
+  player("rw", ["RW"]),
+  player("st", ["ST"]),
   player("extra", ["GK"]),
 ];
 
@@ -124,7 +134,7 @@ describe("lineupReducer", () => {
     expect(state.quarters[1]).not.toBe(first);
   });
 
-  it("4쿼터 자동 배치는 앞 쿼터에서 쉰 선수를 다음 쿼터에 먼저 세운다", () => {
+  it("4쿼터 자동 배치: 골키퍼 둘은 번갈아 막고, 필드는 네 쿼터 모두 뛴다(자리와 인원이 같음)", () => {
     const state = lineupReducer(createInitialLineup(players), { type: "autoAssignAll", players });
     const keepers = state.quarters.map((q) => q.assignments.gk);
     expect(keepers).toEqual(["gk", "extra", "gk", "extra"]);
@@ -132,6 +142,38 @@ describe("lineupReducer", () => {
     expect(counts.get("gk")).toBe(2);
     expect(counts.get("extra")).toBe(2);
     expect(counts.get("cb")).toBe(4);
+  });
+
+  it("늦참·조퇴: 뛸 수 있는 쿼터에만 세우고, 못 뛰는 쿼터에는 벤치에서도 빠진다", () => {
+    const sub = player("sub", ["ST"]);
+    const roster = [...players, sub];
+    let state = createInitialLineup(roster);
+    state = lineupReducer(state, {
+      type: "importMatch",
+      playerIds: roster.map((p) => p.id),
+      availability: { st: [2, 3], sub: [0, 1] }, // st는 3쿼터부터(늦참), sub는 2쿼터까지(조퇴)
+      guests: [],
+    });
+    state = lineupReducer(state, { type: "autoAssignAll", players: roster });
+    const strikers = state.quarters.map((q) => q.assignments.st1);
+    expect(strikers).toEqual(["sub", "sub", "st", "st"]);
+    expect(selectUnavailable(state, roster).map((p) => p.id)).toEqual(["st"]);
+    expect(selectBench(state, roster).map((p) => p.id)).not.toContain("st");
+  });
+
+  it("용병은 선수 목록에 없어도 참석자·자동 배치에 들어가고, 전체 해제해도 남는다", () => {
+    const guest = { id: "guest-1", name: "홍길동", positions: ["ST" as Position] };
+    const field = players.filter((p) => p.id !== "st");
+    let state = lineupReducer(createInitialLineup(field), {
+      type: "importMatch",
+      playerIds: field.map((p) => p.id),
+      availability: {},
+      guests: [guest],
+    });
+    state = lineupReducer(state, { type: "autoAssignAll", players: rosterOf(state, field) });
+    expect(state.quarters.every((q) => q.assignments.st1 === "guest-1")).toBe(true);
+    state = lineupReducer(state, { type: "setAllAttending", playerIds: [] });
+    expect(state.attendingIds).toEqual(["guest-1"]);
   });
 
   it("한 쿼터만 자동 배치할 때도 다른 쿼터 출전 수를 반영한다", () => {
@@ -155,6 +197,8 @@ describe("lineupReducer", () => {
         { shape: "4-2-3-1", assignments: {} },
         { shape: "4-2-3-1", assignments: {} },
       ],
+      guests: [],
+      availability: {},
       createdAt: "",
       updatedAt: "",
     };

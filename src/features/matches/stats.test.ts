@@ -22,6 +22,8 @@ const match = (playedAt: string, goals: MatchGoal[], played = true): Match => ({
   voteDeadline: null,
   formationId: null,
   formation: null,
+  cancelled: false,
+  cancelReason: null,
   goals,
   createdAt: "",
 });

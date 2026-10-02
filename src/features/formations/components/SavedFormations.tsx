@@ -41,6 +41,8 @@ export function SavedFormations({ state, dispatch, validPlayerIds }: SavedFormat
       name: formationName,
       attendingIds: state.attendingIds,
       quarters: state.quarters,
+      guests: state.guests,
+      availability: state.availability,
     });
     if (errors) {
       setError(Object.values(errors)[0] ?? "입력값을 확인해 주세요");

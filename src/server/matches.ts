@@ -1,7 +1,7 @@
 import { asc, desc, eq, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import { db } from "@/lib/db";
-import { feedbacks, formations, matchAttendance, matchComments, matchGoals, matches, players } from "@/lib/db/schema";
+import { feedbacks, formations, matchAttendance, matchComments, matchGoals, matchGuests, matches, players } from "@/lib/db/schema";
 import type { Match, MatchGoal, MatchInput } from "@/features/matches/schema";
 import type { QuarterLineup } from "@/features/formations/schema";
 
@@ -54,6 +54,7 @@ function selectMatches() {
 function hydrate(rows: JoinedRow[], goalsByMatch: Map<string, MatchGoal[]>): Match[] {
   return rows.map(({ match, formationName, formationQuarters }) => ({
     ...match,
+    cancelled: match.cancelled ?? false,
     goals: goalsByMatch.get(match.id) ?? [],
     formation:
       match.formationId && formationName && formationQuarters
@@ -106,7 +107,13 @@ export async function updateMatch(id: string, input: MatchInput): Promise<Match 
   const { goals, ...fields } = input;
 
   const updated = await db.transaction(async (tx) => {
-    const rows = await tx.update(matches).set(fields).where(eq(matches.id, id)).returning({ id: matches.id });
+    // 결과를 입력하면 취소 상태는 풀린다 (취소했다가 결국 경기를 한 경우).
+    const cancelPatch = fields.ourScore !== null ? { cancelled: false, cancelReason: null } : {};
+    const rows = await tx
+      .update(matches)
+      .set({ ...fields, ...cancelPatch })
+      .where(eq(matches.id, id))
+      .returning({ id: matches.id });
     if (rows.length === 0) return false;
     await tx.delete(matchGoals).where(eq(matchGoals.matchId, id));
     if (goals.length > 0) await tx.insert(matchGoals).values(toGoalRows(id, goals));
@@ -122,8 +129,19 @@ export async function deleteMatch(id: string): Promise<boolean> {
     await tx.delete(matchGoals).where(eq(matchGoals.matchId, id));
     await tx.delete(matchAttendance).where(eq(matchAttendance.matchId, id));
     await tx.delete(matchComments).where(eq(matchComments.matchId, id));
+    await tx.delete(matchGuests).where(eq(matchGuests.matchId, id));
     await tx.delete(feedbacks).where(eq(feedbacks.matchId, id));
     const deleted = await tx.delete(matches).where(eq(matches.id, id)).returning({ id: matches.id });
     return deleted.length > 0;
   });
+}
+
+/** 경기 취소/되돌리기. 결과가 있는 경기는 취소할 수 없다(라우트가 확인). */
+export async function setMatchCancelled(id: string, cancelled: boolean, reason: string | null): Promise<Match | null> {
+  const rows = await db
+    .update(matches)
+    .set({ cancelled, cancelReason: cancelled ? reason : null })
+    .where(eq(matches.id, id))
+    .returning({ id: matches.id });
+  return rows.length > 0 ? getMatch(id) : null;
 }

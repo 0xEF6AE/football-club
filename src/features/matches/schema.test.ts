@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  canJoinLate,
+  effectiveVoteDeadline,
   getMatchResult,
   isAwaitingResult,
   isPlayed,
@@ -23,6 +25,8 @@ const match = (overrides: Partial<Match>): Match => ({
   voteDeadline: null,
   formationId: null,
   formation: null,
+  cancelled: false,
+  cancelReason: null,
   goals: [],
   createdAt: "",
   ...overrides,
@@ -43,17 +47,35 @@ describe("isPlayed / getMatchResult", () => {
   });
 });
 
-describe("isVoteClosed", () => {
+describe("참석 투표 마감", () => {
   const now = new Date("2026-09-26T12:00:00.000Z");
+  const next = (overrides: Partial<Match>) =>
+    match({ playedAt: "2026-10-04", kickoffTime: "07:00", ourScore: null, theirScore: null, ...overrides });
 
-  it("마감 시각이 없으면 계속 열려 있다", () => {
-    expect(isVoteClosed({ voteDeadline: null }, now)).toBe(false);
+  it("정한 마감 시각이 되는 순간부터 닫힌다", () => {
+    expect(isVoteClosed(next({ voteDeadline: "2026-09-26T12:00:01.000Z" }), now)).toBe(false);
+    expect(isVoteClosed(next({ voteDeadline: "2026-09-26T12:00:00.000Z" }), now)).toBe(true);
   });
 
-  it("마감 시각이 되는 순간부터 닫힌다", () => {
-    expect(isVoteClosed({ voteDeadline: "2026-09-26T12:00:01.000Z" }, now)).toBe(false);
-    expect(isVoteClosed({ voteDeadline: "2026-09-26T12:00:00.000Z" }, now)).toBe(true);
-    expect(isVoteClosed({ voteDeadline: "2026-09-25T21:00:00.000Z" }, now)).toBe(true);
+  it("마감을 안 정하면 킥오프 시각에, 킥오프도 미정이면 경기 당일 0시(한국 시간)에 닫힌다", () => {
+    expect(effectiveVoteDeadline(next({}))).toBe("2026-10-03T22:00:00.000Z");
+    expect(effectiveVoteDeadline(next({ kickoffTime: null }))).toBe("2026-10-03T15:00:00.000Z");
+    expect(isVoteClosed(next({}), new Date("2026-10-04T06:59:00+09:00"))).toBe(false);
+    expect(isVoteClosed(next({}), new Date("2026-10-04T07:00:00+09:00"))).toBe(true);
+  });
+
+  it("결과가 나왔거나 취소된 경기는 마감 전이어도 닫혀 있다", () => {
+    expect(isVoteClosed(next({ ourScore: 1, theirScore: 0 }), now)).toBe(true);
+    expect(isVoteClosed(next({ cancelled: true }), now)).toBe(true);
+  });
+
+  it("'늦게라도 참석'은 마감 뒤부터 킥오프 2시간 뒤까지만", () => {
+    const m = next({ voteDeadline: "2026-10-03T12:00:00.000Z" }); // 전날 21:00
+    expect(canJoinLate(m, new Date("2026-10-03T20:00:00+09:00"))).toBe(false); // 아직 마감 전
+    expect(canJoinLate(m, new Date("2026-10-03T21:30:00+09:00"))).toBe(true);
+    expect(canJoinLate(m, new Date("2026-10-04T08:59:00+09:00"))).toBe(true);
+    expect(canJoinLate(m, new Date("2026-10-04T09:00:00+09:00"))).toBe(false); // 결과 입력 대기
+    expect(canJoinLate({ ...m, cancelled: true }, new Date("2026-10-03T21:30:00+09:00"))).toBe(false);
   });
 });
 
@@ -95,9 +117,10 @@ describe("splitMatches", () => {
     const b = match({ playedAt: "2026-09-20" });
     const later = upcoming("2026-10-11");
     const sooner = upcoming("2026-10-04");
-    const { upcoming: up, played } = splitMatches([later, a, sooner, b]);
+    const cancelled = match({ playedAt: "2026-09-13", ourScore: null, theirScore: null, cancelled: true });
+    const { upcoming: up, finished } = splitMatches([later, a, sooner, b, cancelled]);
     expect(up.map((m) => m.playedAt)).toEqual(["2026-10-04", "2026-10-11"]);
-    expect(played).toEqual([a, b]);
+    expect(finished).toEqual([a, b, cancelled]); // 취소된 경기는 지난 경기 쪽
   });
 });
 
@@ -156,6 +179,22 @@ describe("matchInputSchema", () => {
     const result = matchInputSchema.safeParse({ ...base, theirScore: null });
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error.issues[0].path).toEqual(["theirScore"]);
+  });
+
+  it("득점 기록이 점수보다 많으면 거절하고, 적은 건 허용한다 (득점자 모르는 골)", () => {
+    const two = [{ scorerId: "a", assistId: null }, { scorerId: "b", assistId: null }];
+    const over = matchInputSchema.safeParse({ ...base, ourScore: 1, goals: two });
+    expect(over.success).toBe(false);
+    if (!over.success) expect(over.error.issues[0].path).toEqual(["goals"]);
+    expect(matchInputSchema.safeParse({ ...base, ourScore: 3, goals: two }).success).toBe(true);
+  });
+
+  it("직접 정한 투표 마감은 킥오프 전이어야 한다", () => {
+    const upcomingBase = { ...base, ourScore: null, theirScore: null, playedAt: "2026-10-04", kickoffTime: "07:00" };
+    expect(matchInputSchema.safeParse({ ...upcomingBase, voteDeadline: "2026-10-03T22:00:00.000Z" }).success).toBe(true);
+    const late = matchInputSchema.safeParse({ ...upcomingBase, voteDeadline: "2026-10-03T22:30:00.000Z" });
+    expect(late.success).toBe(false);
+    if (!late.success) expect(late.error.issues[0].path).toEqual(["voteDeadline"]);
   });
 
   it("예정 경기에는 득점 기록을 붙일 수 없다", () => {

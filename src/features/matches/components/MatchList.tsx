@@ -71,6 +71,24 @@ function PlayedRow({ match }: { match: Match }) {
   );
 }
 
+/** 우천 등으로 취소된 경기: 날짜·상대와 사유만, 흐리게 */
+function CancelledRow({ match }: { match: Match }) {
+  return (
+    <li>
+      <Link href={`/matches/${match.id}`} className={cn(rowStyles, "text-muted")}>
+        <time dateTime={match.playedAt} className="w-16 shrink-0 text-sm">
+          {formatMatchDay(match.playedAt)}
+        </time>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium line-through decoration-muted/60">{match.opponent}</p>
+          {match.cancelReason && <p className="truncate text-xs">{match.cancelReason}</p>}
+        </div>
+        <span className="shrink-0 rounded-full bg-surface-2 px-2.5 py-1 text-xs font-medium">취소</span>
+      </Link>
+    </li>
+  );
+}
+
 function UpcomingRow({ match }: { match: Match }) {
   const days = daysUntil(match.playedAt);
   // 킥오프 2시간 뒤(시간 미정이면 다음 날)부터 결과 입력 대기. 관리자 알림과 같은 기준.
@@ -132,9 +150,10 @@ export function MatchList() {
     );
   }
 
-  const { upcoming, played } = splitMatches(query.data);
+  const { upcoming, finished } = splitMatches(query.data);
+  const played = finished.filter((match) => isPlayed(match));
 
-  if (upcoming.length === 0 && played.length === 0) {
+  if (upcoming.length === 0 && finished.length === 0) {
     return (
       <EmptyState
         icon={<Trophy />}
@@ -168,15 +187,15 @@ export function MatchList() {
         </section>
       )}
 
-      {groupByMonth(played).map((group) => (
+      {groupByMonth(finished).map((group) => (
         <section key={group.key} aria-labelledby={`month-${group.key}`}>
           <h2 id={`month-${group.key}`} className="mb-1 text-sm font-medium text-muted">
             {group.label}
           </h2>
           <ul className="divide-y divide-line">
-            {group.matches.map((match) => (
-              <PlayedRow key={match.id} match={match} />
-            ))}
+            {group.matches.map((match) =>
+              match.cancelled ? <CancelledRow key={match.id} match={match} /> : <PlayedRow key={match.id} match={match} />,
+            )}
           </ul>
         </section>
       ))}

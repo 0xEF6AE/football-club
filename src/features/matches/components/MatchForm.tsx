@@ -41,6 +41,14 @@ function eveningBefore(playedAt: string): string {
   return toDateTimeLocal(date.toISOString());
 }
 
+/** 경기 전날 정오 (브라우저 로컬). 이른 아침 경기에서 라인업을 하루 전에 짜고 싶을 때. */
+function noonBefore(playedAt: string): string {
+  const date = new Date(`${playedAt}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return "";
+  date.setDate(date.getDate() - 1);
+  return toDateTimeLocal(date.toISOString());
+}
+
 type MatchFormProps = {
   /** 수정 모드면 기존 경기 */
   initial?: Match;
@@ -232,7 +240,11 @@ export function MatchForm({ initial, submitLabel, pending, onSubmit, cancelHref 
           label="참석 투표 마감"
           htmlFor={`${id}-deadline`}
           error={errors.voteDeadline}
-          hint="마감 뒤에는 참석 여부를 바꿀 수 없어요. 비워 두면 마감 없이 계속 받아요."
+          hint={
+            kickoffTime
+              ? "비워 두면 킥오프 시각에 마감돼요. 마감 뒤에는 '늦게라도 참석'만 킥오프 2시간 뒤까지 받아요."
+              : "비워 두면 경기 당일 0시에 마감돼요. 마감 뒤에는 '늦게라도 참석'만 받아요."
+          }
           optional
         >
           <div className="flex flex-wrap items-center gap-2">
@@ -244,6 +256,9 @@ export function MatchForm({ initial, submitLabel, pending, onSubmit, cancelHref 
               invalid={!!errors.voteDeadline}
               className="sm:max-w-xs"
             />
+            <Button variant="secondary" onClick={() => setVoteDeadline(noonBefore(playedAt))} disabled={!playedAt}>
+              전날 12:00
+            </Button>
             <Button variant="secondary" onClick={() => setVoteDeadline(eveningBefore(playedAt))} disabled={!playedAt}>
               전날 21:00
             </Button>

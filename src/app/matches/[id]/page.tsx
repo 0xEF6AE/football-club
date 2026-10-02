@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Container } from "@/components/ui/PageHeader";
 import { MatchDetail } from "@/features/matches/components/MatchDetail";
-import { getMatchResult, isPlayed, MATCH_RESULT_LABEL, summarizeScorers } from "@/features/matches/schema";
+import { effectiveVoteDeadline, getMatchResult, isPlayed, MATCH_RESULT_LABEL, summarizeScorers } from "@/features/matches/schema";
 import { CLUB_NAME } from "@/lib/config";
 import { formatDateTime, formatKickoffTime, formatMatchDate } from "@/lib/utils";
 import { getMatch } from "@/server/matches";
@@ -27,6 +27,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!match) return { title: "경기 상세" };
 
   const date = formatMatchDate(match.playedAt);
+  if (match.cancelled) {
+    return withPreview(`${date} vs ${match.opponent} 경기 취소`, match.cancelReason ? `취소 사유: ${match.cancelReason}` : "이 경기는 취소됐어요");
+  }
   if (isPlayed(match)) {
     const title = `${date} vs ${match.opponent} ${match.ourScore}:${match.theirScore} ${MATCH_RESULT_LABEL[getMatchResult(match)]}`;
     const scorers = summarizeScorers(match.goals);
@@ -40,7 +43,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const description = [
     match.kickoffTime ? `${formatKickoffTime(match.kickoffTime)} 킥오프` : null,
     match.location,
-    match.voteDeadline ? `투표 마감 ${formatDateTime(match.voteDeadline)}` : null,
+    `투표 마감 ${formatDateTime(effectiveVoteDeadline(match))}`,
     "참석 여부를 알려 주세요",
   ]
     .filter(Boolean)

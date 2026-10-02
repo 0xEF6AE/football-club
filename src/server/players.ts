@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { formations, matchAttendance, matchComments, matchGoals, players } from "@/lib/db/schema";
 import type { Player, PlayerInput } from "@/features/players/schema";
 import { buildPlayerStats, type PlayerStats } from "@/features/players/stats";
+import { listAttendanceOfPlayer } from "./attendance";
 import { listMatches } from "./matches";
 
 type PlayerRow = typeof players.$inferSelect;
@@ -31,7 +32,7 @@ export async function getPlayerStats(id: string): Promise<PlayerStats | null> {
   const [player, matches, attendance] = await Promise.all([
     getPlayer(id),
     listMatches(),
-    db.select().from(matchAttendance).where(eq(matchAttendance.playerId, id)),
+    listAttendanceOfPlayer(id),
   ]);
   if (!player) return null;
 

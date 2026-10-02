@@ -26,6 +26,8 @@ const match = (id: string, ourScore: number | null, theirScore: number | null, g
   voteDeadline: null,
   formationId: null,
   formation: null,
+  cancelled: false,
+  cancelReason: null,
   goals,
   createdAt: "",
 });
@@ -35,6 +37,8 @@ const vote = (matchId: string, status: Attendance["status"]): Attendance => ({
   matchId,
   playerId: me.id,
   status,
+  quarters: null,
+  lateJoin: false,
   updatedAt: "",
 });
 

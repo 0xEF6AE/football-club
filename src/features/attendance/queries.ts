@@ -5,7 +5,28 @@ export const attendanceKeys = {
   all: ["attendance"] as const,
   byMatch: (matchId: string) => [...attendanceKeys.all, matchId] as const,
   comments: (matchId: string) => [...attendanceKeys.all, "comments", matchId] as const,
+  guests: (matchId: string) => [...attendanceKeys.all, "guests", matchId] as const,
 };
+
+export function useGuests(matchId: string) {
+  return useQuery({ queryKey: attendanceKeys.guests(matchId), queryFn: () => attendanceApi.guests(matchId) });
+}
+
+export function useAddGuest(matchId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: attendanceApi.addGuest,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: attendanceKeys.guests(matchId) }),
+  });
+}
+
+export function useRemoveGuest(matchId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: attendanceApi.removeGuest,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: attendanceKeys.guests(matchId) }),
+  });
+}
 
 export function useAttendance(matchId: string) {
   return useQuery({

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Check, Copy, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
@@ -12,7 +12,7 @@ import { useCopy } from "@/lib/use-copy";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import { formatQuartersText } from "../lineup-text";
 import { useFormations } from "../queries";
-import { quarterLabel, summarizeShapes } from "../schema";
+import { canPlayQuarter, displayName, guestAsPlayer, quarterLabel, summarizeShapes } from "../schema";
 import { getSlots } from "../templates";
 import { FormationSkeleton } from "./FormationBuilder";
 import { Pitch } from "./Pitch";
@@ -32,7 +32,6 @@ export function FormationViewer({ players, loadId }: FormationViewerProps) {
   const formations = useFormations();
   const [quarter, setQuarter] = useState(0);
   const { copied, copy } = useCopy();
-  const playersById = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
 
   if (formations.isPending) return <FormationSkeleton />;
   if (formations.isError) {
@@ -59,14 +58,21 @@ export function FormationViewer({ players, loadId }: FormationViewerProps) {
   // 목록은 최근 수정순이라 첫 번째가 가장 최근 라인업이다.
   const formation = list.find((f) => f.id === loadId) ?? list[0];
   const lineup = formation.quarters[quarter] ?? formation.quarters[0];
+  // 이 라인업의 용병까지 합친 명단 (용병은 선수 목록에 없다)
+  const roster = [...players, ...formation.guests.map(guestAsPlayer)];
+  const playersById = new Map(roster.map((p) => [p.id, p]));
   const attending = new Set(formation.attendingIds.filter((id) => playersById.has(id)));
   const assigned = new Set(Object.values(lineup.assignments));
-  const bench = players.filter((p) => attending.has(p.id) && !assigned.has(p.id));
+  const shownQuarter = formation.quarters[quarter] ? quarter : 0;
+  const bench = roster.filter(
+    (p) => attending.has(p.id) && !assigned.has(p.id) && canPlayQuarter(formation.availability[p.id], shownQuarter),
+  );
   const text = formatQuartersText({
     title: formation.name,
     quarters: formation.quarters,
     attendingIds: formation.attendingIds,
     playersById,
+    availability: formation.availability,
   });
 
   return (
@@ -134,7 +140,7 @@ export function FormationViewer({ players, loadId }: FormationViewerProps) {
             <ul className="flex flex-wrap gap-1.5">
               {bench.map((player) => (
                 <li key={player.id} className="rounded-md border border-line bg-surface px-2 py-1 text-sm">
-                  {player.name}
+                  {displayName(player)}
                 </li>
               ))}
             </ul>

@@ -2,7 +2,7 @@ import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqli
 import type { Position } from "@/lib/positions";
 import type { AttendanceStatus } from "@/features/attendance/schema";
 import type { FeedbackCategory } from "@/features/feedback/schema";
-import type { QuarterLineup } from "@/features/formations/schema";
+import type { FormationGuest, PlayerAvailability, QuarterLineup } from "@/features/formations/schema";
 
 /**
  * 타임스탬프는 ISO 문자열로 저장한다.
@@ -40,6 +40,10 @@ export const formations = sqliteTable("formations", {
   attendingIds: text("attending_ids", { mode: "json" }).$type<string[]>().notNull(),
   /** 1~4쿼터 라인업. 쿼터마다 모양(shape)과 slotId → playerId | null 배치가 있다. */
   quarters: text("quarters", { mode: "json" }).$type<QuarterLineup[]>().notNull(),
+  /** 이 라인업에 넣은 용병(그날만 뛴 사람). 이름을 다시 그리려고 함께 저장한다. null = 없음 */
+  guests: text("guests", { mode: "json" }).$type<FormationGuest[]>(),
+  /** 선수별 뛸 수 있는 쿼터(늦참·조퇴). 없는 선수는 네 쿼터 모두. null = 모두 */
+  availability: text("availability", { mode: "json" }).$type<PlayerAvailability>(),
   createdAt: isoTimestamp("created_at"),
   updatedAt: isoTimestamp("updated_at"),
 });
@@ -62,6 +66,9 @@ export const matches = sqliteTable(
     voteDeadline: text("vote_deadline"),
     /** 그날 사용한(저장된) 포메이션. 포메이션이 지워지면 null. */
     formationId: text("formation_id").references(() => formations.id, { onDelete: "set null" }),
+    /** 우천·인원 부족 등으로 취소된 경기. null/false = 아님. 결과를 입력하면 풀린다. */
+    cancelled: integer("cancelled", { mode: "boolean" }),
+    cancelReason: text("cancel_reason"),
     createdAt: isoTimestamp("created_at"),
   },
   (t) => [index("matches_played_at_idx").on(t.playedAt)],
@@ -94,9 +101,31 @@ export const matchAttendance = sqliteTable(
       .notNull()
       .references(() => players.id, { onDelete: "cascade" }),
     status: text("status").$type<AttendanceStatus>().notNull(),
+    /** 참석일 때 뛸 수 있는 쿼터(0~3, 늦참·조퇴). null = 네 쿼터 모두 */
+    quarters: text("quarters", { mode: "json" }).$type<number[]>(),
+    /** 투표 마감 뒤에 참석으로 바꾼 사람 (불참·보류였다가 오게 된 경우 등) */
+    lateJoin: integer("late_join", { mode: "boolean" }),
     updatedAt: isoTimestamp("updated_at"),
   },
   (t) => [uniqueIndex("match_attendance_match_player_idx").on(t.matchId, t.playerId)],
+);
+
+/** 용병(게스트): 선수로 등록하지 않고 그 경기에만 오는 사람. 관리자가 넣고 뺀다. 기록(득점왕 등)에는 들어가지 않는다. */
+export const matchGuests = sqliteTable(
+  "match_guests",
+  {
+    /** "guest-" + uuid. 라인업에서 선수 id와 섞여 쓰이므로 접두사로 구별한다. */
+    id: text("id").primaryKey(),
+    matchId: text("match_id")
+      .notNull()
+      .references(() => matches.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    positions: text("positions", { mode: "json" }).$type<Position[]>().notNull(),
+    /** 뛸 수 있는 쿼터. null = 네 쿼터 모두 */
+    quarters: text("quarters", { mode: "json" }).$type<number[]>(),
+    createdAt: isoTimestamp("created_at"),
+  },
+  (t) => [index("match_guests_match_id_idx").on(t.matchId)],
 );
 
 /**
