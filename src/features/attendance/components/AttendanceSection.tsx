@@ -5,11 +5,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Clock, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
-import { Input, Select } from "@/components/ui/Input";
+import { Input } from "@/components/ui/Input";
 import { ListSkeleton } from "@/components/ui/Skeleton";
 import { ErrorState, InlineError } from "@/components/ui/States";
 import { useAdmin } from "@/features/admin/queries";
 import { isPlayed, isVoteClosed, type Match } from "@/features/matches/schema";
+import { PlayerPicker } from "@/features/players/components/PlayerPicker";
 import { playerKeys, usePlayers } from "@/features/players/queries";
 import { getErrorMessage } from "@/lib/api-client";
 import { readStorage, STORAGE_KEYS, writeStorage } from "@/lib/storage";
@@ -176,19 +177,18 @@ export function AttendanceSection({ match }: { match: Match }) {
       ) : (
         <form onSubmit={(e) => e.preventDefault()} className="flex flex-col gap-3 rounded-xl bg-surface-2/60 p-4">
           <div className="flex flex-wrap items-center gap-2">
-            <Select
-              aria-label="내 이름"
+            <PlayerPicker
+              label="내 이름"
+              placeholder="내 이름 검색 (초성도 돼요)"
+              players={list}
               value={me}
-              onChange={(e) => chooseMe(e.target.value)}
-              className="min-w-40 flex-1 [&>select]:bg-surface"
-            >
-              <option value="">내 이름 고르기</option>
-              {list.map((player) => (
-                <option key={player.id} value={player.id}>
-                  {player.name}
-                </option>
-              ))}
-            </Select>
+              onChange={chooseMe}
+              describe={(player) => {
+                const status = statusOf.get(player.id);
+                return status ? ATTENDANCE_LABEL[status] : "응답 전";
+              }}
+              className="min-w-48 flex-1"
+            />
             <div role="group" aria-label="참석 여부" className="flex gap-1.5">
               {ATTENDANCE_STATUSES.map((status) => (
                 <Chip
