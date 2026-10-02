@@ -6,6 +6,7 @@ import {
   getMatchResult,
   isAwaitingResult,
   isPlayed,
+  kickoffCountdown,
   isVoteClosed,
   matchInputSchema,
   splitMatches,
@@ -106,6 +107,25 @@ describe("isAwaitingResult", () => {
 
   it("결과가 기록된 경기는 대기가 아니다", () => {
     expect(isAwaitingResult({ ...morning, ourScore: 1, theirScore: 0 }, at("2026-10-10T00:00:00+09:00"))).toBe(false);
+  });
+});
+
+describe("kickoffCountdown", () => {
+  const m = { playedAt: "2026-10-04", kickoffTime: "07:00" };
+  const at = (iso: string) => new Date(iso).getTime();
+
+  it("킥오프까지 남은 일·시간·분 (분 아래는 버린다)", () => {
+    expect(kickoffCountdown(m, at("2026-10-01T22:47:30+09:00"))).toEqual({ days: 2, hours: 8, minutes: 12, started: false });
+    expect(kickoffCountdown(m, at("2026-10-04T06:59:00+09:00"))).toEqual({ days: 0, hours: 0, minutes: 1, started: false });
+  });
+
+  it("킥오프가 지나면 0·0·0", () => {
+    expect(kickoffCountdown(m, at("2026-10-04T07:00:00+09:00"))).toEqual({ days: 0, hours: 0, minutes: 0, started: true });
+    expect(kickoffCountdown(m, at("2026-10-05T12:00:00+09:00"))?.started).toBe(true);
+  });
+
+  it("킥오프 시간이 미정이면 null", () => {
+    expect(kickoffCountdown({ ...m, kickoffTime: null }, at("2026-10-01T00:00:00+09:00"))).toBeNull();
   });
 });
 

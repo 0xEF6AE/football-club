@@ -44,6 +44,7 @@ import {
   type PlayedScores,
 } from "../schema";
 import { CancelMatchDialog } from "./CancelMatchDialog";
+import { KickoffCountdown } from "./KickoffCountdown";
 import { MatchNotFound } from "./MatchEditor";
 
 const RESULT_PILL: Record<MatchResult, string> = {
@@ -140,9 +141,18 @@ function UpcomingPanel({ match }: { match: Match }) {
       <PanelMeta match={match} />
       <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
         <p className="text-center text-sm font-medium leading-tight md:text-base">{CLUB_NAME}</p>
-        <p className={cn("font-display text-5xl leading-none md:text-6xl", dim ? "text-on-pitch/40" : "text-amber")}>
-          {match.cancelled ? "취소" : formatDday(days)}
-        </p>
+        {/* 킥오프 시간이 있으면 남은 일:시간:분, 없으면 D-day */}
+        {!match.cancelled && match.kickoffTime ? (
+          <KickoffCountdown
+            match={match}
+            variant="board"
+            className={cn("text-4xl sm:text-5xl md:text-6xl", dim ? "text-on-pitch/40" : "text-amber")}
+          />
+        ) : (
+          <p className={cn("font-display text-5xl leading-none md:text-6xl", dim ? "text-on-pitch/40" : "text-amber")}>
+            {match.cancelled ? "취소" : formatDday(days)}
+          </p>
+        )}
         <p className="text-center text-sm font-medium leading-tight md:text-base">{match.opponent}</p>
       </div>
       <p className="mt-4 flex justify-center">

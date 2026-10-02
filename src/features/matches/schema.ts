@@ -145,6 +145,19 @@ export function kickoffAt(match: Pick<Match, "playedAt" | "kickoffTime">): numbe
   return Number.isNaN(at) ? null : at;
 }
 
+export type Countdown = { days: number; hours: number; minutes: number; started: boolean };
+
+/**
+ * 킥오프까지 남은 일·시간·분 (분 아래는 버린다). 이미 시작했으면 0·0·0.
+ * 킥오프 시간이 미정이면 계산할 수 없어 null.
+ */
+export function kickoffCountdown(match: Pick<Match, "playedAt" | "kickoffTime">, now: number): Countdown | null {
+  const at = kickoffAt(match);
+  if (at === null) return null;
+  const left = Math.max(0, Math.floor((at - now) / 60_000));
+  return { days: Math.floor(left / 1440), hours: Math.floor((left % 1440) / 60), minutes: left % 60, started: left === 0 };
+}
+
 /** 직접 정하는 마감이 늦어도 되는 한계: 킥오프, 미정이면 경기 날 끝 */
 function latestDeadline(match: Pick<Match, "playedAt" | "kickoffTime">): number {
   return kickoffAt(match) ?? kstMidnight(match.playedAt) + DAY_MS;

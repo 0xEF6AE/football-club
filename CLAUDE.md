@@ -69,6 +69,7 @@ scripts/make-icons.mjs  엠블럼 PNG 하나로 public/logo.png, src/app/icon.pn
 - **포메이션 편집은 관리자만.** `/formation`은 관리자면 `FormationBuilder`(자리 바꾸기·자동 배치·저장), 아니면 `FormationViewer`(저장된 라인업을 쿼터별로 보기·카톡 텍스트 복사만)를 띄운다. 저장·삭제 API도 `requireAdmin`으로 막혀 있다.
 - **포메이션 하나 = 1~4쿼터 라인업.** `SavedFormation.quarters`(길이 `QUARTER_COUNT`)에 쿼터별 모양과 배치가 들어가고 참석자는 네 쿼터가 공유한다. 리듀서의 자리 조작(모양, 탭, 비우기, 자동 배치)은 `activeQuarter`에만 적용된다. 자동 배치(`auto-lineup.ts`)의 우선순위는 ① 출전 시간을 고르게(덜 뛴 사람부터, 같으면 뒤에 뛸 기회가 적은 사람부터) ② 골키퍼는 GK가 되는 사람끼리 돌아가며(`keeperDuty`), GK만 하는 사람은 필드로 안 돌림 ③ 그 안에서 포지션(정확 → 유사 → 남으면 아무 자리, GK가 없으면 필드 선수가 골문). 뛸 수 있는 쿼터(`availability`) 밖에는 세우지 않는다. 포지션 정확도보다 고른 출전이 먼저인 건 의도다.
 - **포지션 목록은 `lib/positions.ts`가 유일한 출처.** 새 포지션은 여기에 추가하고 `POSITION_FALLBACKS`도 함께 채운다.
+- **킥오프 카운트다운.** 킥오프 시간이 있는 예정 경기는 남은 "일:시간:분"(`kickoffCountdown`, 지났으면 00:00:00)을 경기 상세 전광판(크게)과 목록(한 줄)에 보여 준다(`KickoffCountdown`). 매분 갱신은 `lib/use-now.ts`의 공유 타이머 하나로. 킥오프 미정이면 D-day.
 - **타임스탬프는 ISO 문자열**, 경기 날짜는 `YYYY-MM-DD` 문자열, 킥오프 시각은 정각 단위 `HH:00` 문자열(`matches.kickoffTime`, null이면 미정. 표시는 `formatKickoffTime()` → "오전 7시"). Date 객체를 API 경계로 넘기지 않는다.
 - **선수 기록은 `features/players/stats.ts`의 `buildPlayerStats()` 한 곳에서 계산**하고 `GET /api/players/[id]/stats`가 돌려준다. "출전"은 따로 입력받지 않고 참석 투표 "참석", 경기에 붙인 포메이션 명단, 골·도움 기록 중 하나라도 있으면 출전으로 센다. 참석률 = 출전 ÷ 결과가 기록된 팀 경기 수.
 - **상대전적은 `features/matches/stats.ts`의 `buildHeadToHead()`**. 상대 이름은 공백 제거 + 대소문자 무시로 비교한다(`normalizeOpponent`). 철자가 다르면 다른 팀이다.

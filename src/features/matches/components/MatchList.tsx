@@ -20,6 +20,7 @@ import {
   type Match,
   type MatchResult,
 } from "../schema";
+import { KickoffCountdown } from "./KickoffCountdown";
 import { SeasonBoard } from "./SeasonBoard";
 
 const RESULT_STYLE: Record<MatchResult, string> = {
@@ -111,6 +112,12 @@ function UpcomingRow({ match }: { match: Match }) {
             {match.location && <span className="truncate">{match.location}</span>}
           </p>
         </div>
+        {/* 킥오프까지 남은 일:시간:분 (지났으면 00:00:00) */}
+        <KickoffCountdown
+          match={match}
+          variant="inline"
+          className={cn("shrink-0 text-sm", overdue ? "text-muted" : "text-fg")}
+        />
         <span
           className={cn(
             "shrink-0 rounded-full px-2.5 py-1 text-xs font-medium",
