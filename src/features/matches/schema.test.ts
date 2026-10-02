@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getMatchResult,
+  isAwaitingResult,
   isPlayed,
   isVoteClosed,
   matchInputSchema,
@@ -53,6 +54,26 @@ describe("isVoteClosed", () => {
     expect(isVoteClosed({ voteDeadline: "2026-09-26T12:00:01.000Z" }, now)).toBe(false);
     expect(isVoteClosed({ voteDeadline: "2026-09-26T12:00:00.000Z" }, now)).toBe(true);
     expect(isVoteClosed({ voteDeadline: "2026-09-25T21:00:00.000Z" }, now)).toBe(true);
+  });
+});
+
+describe("isAwaitingResult", () => {
+  const at = (iso: string) => new Date(iso);
+  const morning = match({ playedAt: "2026-10-04", kickoffTime: "07:00", ourScore: null, theirScore: null });
+
+  it("킥오프 2시간 뒤(한국 시간)부터 결과 입력 대기", () => {
+    expect(isAwaitingResult(morning, at("2026-10-04T08:59:59+09:00"))).toBe(false);
+    expect(isAwaitingResult(morning, at("2026-10-04T09:00:00+09:00"))).toBe(true);
+  });
+
+  it("킥오프 시간이 없으면 경기 다음 날 0시부터", () => {
+    const noTime = { ...morning, kickoffTime: null };
+    expect(isAwaitingResult(noTime, at("2026-10-04T23:59:59+09:00"))).toBe(false);
+    expect(isAwaitingResult(noTime, at("2026-10-05T00:00:00+09:00"))).toBe(true);
+  });
+
+  it("결과가 기록된 경기는 대기가 아니다", () => {
+    expect(isAwaitingResult({ ...morning, ourScore: 1, theirScore: 0 }, at("2026-10-10T00:00:00+09:00"))).toBe(false);
   });
 });
 

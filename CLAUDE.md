@@ -8,7 +8,8 @@
 
 ```bash
 npm run dev        # http://localhost:3000
-npm run db:push    # 스키마 → DB 테이블 (최초 1회, 스키마 바꿀 때마다)
+npm run db:push        # 스키마 → 로컬 DB(local.db) 테이블
+npm run db:push:turso  # 스키마 → 배포 DB(Turso). 접속 정보는 .env.turso (git 제외)
 npm run db:seed    # 예시 선수/경기 넣기 (선수가 있으면 건너뜀)
 npm run typecheck  # tsc --noEmit
 npm run lint       # eslint
@@ -17,7 +18,9 @@ npm run build
 node scripts/make-icons.mjs <엠블럼.png>   # 로고·파비콘·PWA 아이콘 일괄 생성
 ```
 
-DB는 기본으로 프로젝트 루트의 `local.db`(SQLite). 배포 시 `.env`에 `DATABASE_URL`, `DATABASE_AUTH_TOKEN`(Turso 등 libsql 호환) 설정. `.env.example` 참고.
+DB는 기본으로 프로젝트 루트의 `local.db`(SQLite). 배포(Vercel)는 Turso이고, Vercel 환경변수에 `DATABASE_URL`, `DATABASE_AUTH_TOKEN`이 있다. `.env.example` 참고.
+
+**`src/lib/db/schema.ts`를 바꾸면 반드시 `npm run db:push`와 `npm run db:push:turso`를 둘 다 실행한다.** Turso를 빠뜨리면 배포 사이트가 새 열을 못 찾아 바로 오류가 난다. 둘 다 "No changes detected"가 나오면 맞춰진 것이다.
 
 ## 스택
 

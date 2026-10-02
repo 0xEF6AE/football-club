@@ -91,6 +91,25 @@ export function isPlayed<T extends Scores>(match: T): match is T & PlayedScores 
   return match.ourScore !== null && match.theirScore !== null;
 }
 
+/** 킥오프 몇 시간 뒤부터 "결과 입력 대기"로 보는지 */
+export const RESULT_DUE_HOURS = 2;
+
+/**
+ * 결과를 입력할 때가 됐는데 아직 점수가 없는 경기인지 (한국 시간 기준).
+ * 킥오프 시간이 있으면 킥오프 RESULT_DUE_HOURS시간 뒤부터, 없으면 경기 다음 날 0시부터.
+ * 목록·상세의 "결과 입력 대기" 표시와 관리자 알림이 모두 이 판정을 쓴다.
+ */
+export function isAwaitingResult(
+  match: Pick<Match, "playedAt" | "kickoffTime" | "ourScore" | "theirScore">,
+  now: Date = new Date(),
+): boolean {
+  if (isPlayed(match)) return false;
+  const dueAt = match.kickoffTime
+    ? new Date(`${match.playedAt}T${match.kickoffTime}:00+09:00`).getTime() + RESULT_DUE_HOURS * 3_600_000
+    : new Date(`${match.playedAt}T00:00:00+09:00`).getTime() + 24 * 3_600_000;
+  return !Number.isNaN(dueAt) && now.getTime() >= dueAt;
+}
+
 /** 참석 투표가 마감됐는지. 마감 시각이 없으면 계속 열려 있다. 클라이언트와 서버가 같은 판정을 쓴다. */
 export function isVoteClosed(match: Pick<Match, "voteDeadline">, now: Date = new Date()): boolean {
   if (match.voteDeadline === null) return false;

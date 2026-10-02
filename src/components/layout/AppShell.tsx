@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { AdminMenu } from "@/features/admin/components/AdminMenu";
+import { ResultReminder } from "@/features/matches/components/ResultReminder";
 import { CLUB_NAME } from "@/lib/config";
 import { Nav } from "./Nav";
 import { Splash } from "./Splash";
@@ -37,6 +38,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
+      {/* 관리자에게만: 결과를 기다리는 경기가 있으면 맨 위에 알린다 */}
+      <ResultReminder />
       <main className="flex-1 px-4 pb-24 pt-3 md:pb-12">{children}</main>
       <Nav variant="bottom" />
       {/* "/"로 들어왔을 때만 보이는 킥오프 연출. 레이아웃에 있어야 /matches로 넘어가는 동안에도 화면을 덮는다. */}

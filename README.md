@@ -19,15 +19,22 @@ npm run dev       # http://localhost:3000
 
 ## 배포
 
-Turso 등 libsql 호환 DB를 쓰려면 `.env`에 아래 값을 넣고 `npm run db:push`를 한 번 실행한다.
-
-2026-09-28 이전 스키마(포메이션이 `shape`/`assignments` 컬럼)로 만든 DB에 push하면 `quarters` 컬럼이 이름을 바꾼 것인지 묻는데, "create column"을 고른다. 옛 포메이션 데이터는 옮겨지지 않으니 필요하면 다시 저장한다. push는 대화형 터미널에서 실행해야 한다.
+Vercel(함수 지역 도쿄 `hnd1`, `vercel.json`) + Turso(도쿄). Vercel 프로젝트 환경변수에 아래 값을 넣는다.
 
 ```
 DATABASE_URL=libsql://...
 DATABASE_AUTH_TOKEN=...
+ADMIN_PASSCODE=...
 NEXT_PUBLIC_CLUB_NAME=뽀잉 fc
 ```
+
+DB 테이블은 로컬에서 반영한다. 같은 Turso 두 값을 `.env.turso`(git 제외)에 넣어 두고:
+
+```bash
+npm run db:push:turso   # 스키마를 바꿀 때마다. 로컬은 npm run db:push
+```
+
+2026-09-28 이전 스키마(포메이션이 `shape`/`assignments` 컬럼)로 만든 DB에 push하면 `quarters` 컬럼이 이름을 바꾼 것인지 묻는데, "create column"을 고른다. 이런 질문이 나오는 push는 대화형 터미널에서 실행해야 한다.
 
 ## 스택
 

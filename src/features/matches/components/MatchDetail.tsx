@@ -33,6 +33,7 @@ import { useDeleteMatch, useMatch, useMatches } from "../queries";
 import { buildHeadToHead, formatRecord } from "../stats";
 import {
   getMatchResult,
+  isAwaitingResult,
   isPlayed,
   isVoteClosed,
   MATCH_RESULT_LABEL,
@@ -127,7 +128,8 @@ function ScorePanel({ match }: { match: Match & PlayedScores }) {
 
 function UpcomingPanel({ match }: { match: Match }) {
   const days = daysUntil(match.playedAt);
-  const overdue = days < 0;
+  // 킥오프 2시간 뒤(시간 미정이면 다음 날)부터 결과 입력 대기. 관리자 알림과 같은 기준.
+  const overdue = isAwaitingResult(match);
   const closed = isVoteClosed(match);
   return (
     <section aria-label="경기 예정" className={panelStyles}>

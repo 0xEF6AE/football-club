@@ -11,6 +11,7 @@ import { cn, daysUntil, formatDday, formatKickoffTime, formatMatchDate, formatMa
 import { useMatches } from "../queries";
 import {
   getMatchResult,
+  isAwaitingResult,
   isPlayed,
   isVoteClosed,
   MATCH_RESULT_LABEL,
@@ -72,7 +73,8 @@ function PlayedRow({ match }: { match: Match }) {
 
 function UpcomingRow({ match }: { match: Match }) {
   const days = daysUntil(match.playedAt);
-  const overdue = days < 0;
+  // 킥오프 2시간 뒤(시간 미정이면 다음 날)부터 결과 입력 대기. 관리자 알림과 같은 기준.
+  const overdue = isAwaitingResult(match);
   const closed = isVoteClosed(match);
 
   return (

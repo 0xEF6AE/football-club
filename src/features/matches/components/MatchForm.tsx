@@ -11,13 +11,18 @@ import { Select, type SelectOption } from "@/components/ui/Select";
 import { InlineError } from "@/components/ui/States";
 import { useFormations } from "@/features/formations/queries";
 import { summarizeShapes } from "@/features/formations/schema";
+import { PlayerPicker } from "@/features/players/components/PlayerPicker";
 import { usePlayers } from "@/features/players/queries";
+import type { Player } from "@/features/players/schema";
 import { CLUB_NAME } from "@/lib/config";
 import { errorsFromApi, FORM_ERROR_KEY, validate, type FieldErrors } from "@/lib/form";
 import { cn, formatKickoffTime, fromDateTimeLocal, toDateTimeLocal, todayIsoDate } from "@/lib/utils";
 import { isPlayed, matchInputSchema, type Match, type MatchInput } from "../schema";
 
 type GoalDraft = { key: string; scorerId: string; assistId: string };
+
+/** 득점자·도움 목록에서 이름 옆에 주 포지션을 붙여 동명이인·헷갈림을 줄인다 */
+const describePosition = (player: Player) => <span className="font-display tracking-wide">{player.positions[0]}</span>;
 
 /** 킥오프는 정각만 고른다: 미정, "00:00" ~ "23:00" */
 const KICKOFF_OPTIONS: SelectOption[] = [
@@ -51,7 +56,7 @@ const newGoal = (): GoalDraft => ({ key: crypto.randomUUID(), scorerId: "", assi
 export function MatchForm({ initial, submitLabel, pending, onSubmit, cancelHref }: MatchFormProps) {
   const id = useId();
   const players = usePlayers();
-  const playerOptions: SelectOption[] = (players.data ?? []).map((player) => ({ value: player.id, label: player.name }));
+  const playerList = players.data ?? [];
   const formations = useFormations();
 
   const [hasResult, setHasResult] = useState(initial ? isPlayed(initial) : true);
@@ -280,18 +285,27 @@ export function MatchForm({ initial, submitLabel, pending, onSubmit, cancelHref 
               {goals.map((goal, index) => (
                 <li key={goal.key} className="flex items-center gap-2">
                   <span className="font-display w-5 shrink-0 text-center text-sm text-muted">{index + 1}</span>
-                  <Select
-                    aria-label={`${index + 1}번째 골 득점자`}
+                  <PlayerPicker
+                    compact
+                    label={`${index + 1}번째 골 득점자`}
+                    emptyLabel="득점자 미상"
+                    players={playerList}
                     value={goal.scorerId}
-                    onChange={(scorerId) => updateGoal(goal.key, { scorerId })}
-                    options={[{ value: "", label: "득점자 미상" }, ...playerOptions]}
+                    // 도움으로 고른 사람을 득점자로 바꾸면 도움은 비운다 (같은 사람이 골·도움일 수 없다).
+                    onChange={(scorerId) =>
+                      updateGoal(goal.key, scorerId && scorerId === goal.assistId ? { scorerId, assistId: "" } : { scorerId })
+                    }
+                    describe={describePosition}
                     className="min-w-0 flex-1"
                   />
-                  <Select
-                    aria-label={`${index + 1}번째 골 도움`}
+                  <PlayerPicker
+                    compact
+                    label={`${index + 1}번째 골 도움`}
+                    emptyLabel="도움 없음"
+                    players={playerList.filter((player) => player.id !== goal.scorerId)}
                     value={goal.assistId}
                     onChange={(assistId) => updateGoal(goal.key, { assistId })}
-                    options={[{ value: "", label: "도움 없음" }, ...playerOptions]}
+                    describe={describePosition}
                     className="min-w-0 flex-1"
                   />
                   <Button

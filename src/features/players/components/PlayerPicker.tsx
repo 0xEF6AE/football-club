@@ -18,8 +18,18 @@ type PlayerPickerProps = {
   placeholder?: string;
   /** 목록에서 이름 오른쪽에 붙일 짧은 정보 (예: 지금 참석 상태) */
   describe?: (player: Player) => React.ReactNode;
+  /**
+   * "아무도 아님"을 고를 수 있게 목록 맨 위에 둘 항목 (예: "득점자 미상"). 값은 "".
+   * 아무도 안 골랐을 때 칸에 흐리게 이 문구가 보인다.
+   */
+  emptyLabel?: string;
+  /** 좁은 칸용: 앞의 돋보기 아이콘을 뺀다 */
+  compact?: boolean;
   className?: string;
 };
+
+/** 목록의 한 줄. id가 ""이면 emptyLabel 항목 */
+type Entry = { id: string; name: string; player?: Player };
 
 /**
  * 이름을 쳐서 찾는 선수 선택 칸 (콤보박스).
@@ -33,6 +43,8 @@ export function PlayerPicker({
   label,
   placeholder = "이름 검색",
   describe,
+  emptyLabel,
+  compact = false,
   className,
 }: PlayerPickerProps) {
   const id = useId();
@@ -45,7 +57,11 @@ export function PlayerPicker({
   const [placement, setPlacement] = useState<PopoverPlacement>("bottom");
 
   const selected = players.find((p) => p.id === value);
-  const results = useMemo(() => searchByName(players, query), [players, query]);
+  const results = useMemo<Entry[]>(() => {
+    const found = searchByName(players, query).map((player) => ({ id: player.id, name: player.name, player }));
+    // "없음" 항목은 검색어가 없을 때만 맨 위에 둔다 (이름을 치는 중에는 방해만 된다).
+    return emptyLabel && query.trim() === "" ? [{ id: "", name: emptyLabel }, ...found] : found;
+  }, [players, query, emptyLabel]);
   const optionId = (index: number) => `${id}-option-${index}`;
 
   // 방향키로 움직인 항목이 목록 밖에 있으면 보이게 스크롤한다.
@@ -61,8 +77,8 @@ export function PlayerPicker({
     setOpen(true);
   };
 
-  const choose = (player: Player) => {
-    onChange(player.id);
+  const choose = (entry: Entry) => {
+    onChange(entry.id);
     setOpen(false);
     setQuery("");
   };
@@ -102,10 +118,12 @@ export function PlayerPicker({
 
   return (
     <div className={cn("relative", className)}>
-      <Search
-        aria-hidden
-        className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted"
-      />
+      {!compact && (
+        <Search
+          aria-hidden
+          className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted"
+        />
+      )}
       <input
         ref={inputRef}
         role="combobox"
@@ -119,7 +137,7 @@ export function PlayerPicker({
         spellCheck={false}
         enterKeyHint="done"
         value={open ? query : (selected?.name ?? "")}
-        placeholder={open && selected ? selected.name : placeholder}
+        placeholder={open ? (selected?.name ?? placeholder) : (emptyLabel ?? placeholder)}
         onFocus={openList}
         onClick={() => !open && openList()}
         onBlur={close}
@@ -129,12 +147,12 @@ export function PlayerPicker({
           setOpen(true);
         }}
         onKeyDown={onKeyDown}
-        className={cn(controlStyles, "pl-9 pr-10", selected && !open && "font-medium")}
+        className={cn(controlStyles, compact ? "pl-3 pr-9" : "pl-9 pr-10", selected && !open && "font-medium")}
       />
       {selected && !open ? (
         <button
           type="button"
-          aria-label="고른 이름 지우기"
+          aria-label={emptyLabel ? `${emptyLabel}로 바꾸기` : "고른 이름 지우기"}
           onClick={() => {
             onChange("");
             inputRef.current?.focus();
@@ -165,20 +183,25 @@ export function PlayerPicker({
               &lsquo;{query.trim()}&rsquo;와(과) 맞는 이름이 없어요
             </li>
           ) : (
-            results.map((player, index) => (
+            results.map((entry, index) => (
               <li
-                key={player.id}
+                key={entry.id || "none"}
                 id={optionId(index)}
                 data-index={index}
                 role="option"
-                aria-selected={player.id === value}
-                onClick={() => choose(player)}
+                aria-selected={entry.id === value}
+                onClick={() => choose(entry)}
                 onMouseMove={() => setActive(index)}
-                className={optionStyles({ active: index === active, selected: player.id === value })}
+                className={cn(
+                  optionStyles({ active: index === active, selected: entry.id === value }),
+                  !entry.player && "text-muted",
+                )}
               >
-                <Check aria-hidden className={cn("size-4 shrink-0 text-pitch-ink", player.id !== value && "invisible")} />
-                <span className="min-w-0 flex-1 truncate">{player.name}</span>
-                {describe && <span className="shrink-0 text-xs font-normal text-muted">{describe(player)}</span>}
+                <Check aria-hidden className={cn("size-4 shrink-0 text-pitch-ink", entry.id !== value && "invisible")} />
+                <span className="min-w-0 flex-1 truncate">{entry.name}</span>
+                {describe && entry.player && (
+                  <span className="shrink-0 text-xs font-normal text-muted">{describe(entry.player)}</span>
+                )}
               </li>
             ))
           )}
