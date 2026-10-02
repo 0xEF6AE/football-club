@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Check, Copy, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Select } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import { EmptyState, ErrorState } from "@/components/ui/States";
 import type { Player } from "@/features/players/schema";
 import { getErrorMessage } from "@/lib/api-client";
@@ -83,7 +83,7 @@ export function FormationViewer({ players, loadId }: FormationViewerProps) {
               onClick={() => setQuarter(index)}
               className={cn(
                 "flex flex-col items-center rounded-md px-2 py-1.5 outline-none transition-colors",
-                "focus-visible:ring-2 focus-visible:ring-pitch/40",
+                "focus-visible:ring-2 focus-visible:ring-pitch-ink/40",
                 index === quarter ? "bg-surface text-fg shadow-sm" : "text-muted hover:text-fg",
               )}
             >
@@ -105,18 +105,13 @@ export function FormationViewer({ players, loadId }: FormationViewerProps) {
             <Select
               aria-label="라인업 고르기"
               value={formation.id}
-              onChange={(e) => {
+              onChange={(nextId) => {
                 setQuarter(0);
-                router.replace(`/formation?load=${e.target.value}`, { scroll: false });
+                router.replace(`/formation?load=${nextId}`, { scroll: false });
               }}
+              options={list.map((f) => ({ value: f.id, label: f.name, hint: summarizeShapes(f.quarters.map((q) => q.shape)) }))}
               className="sm:max-w-sm"
-            >
-              {list.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.name}
-                </option>
-              ))}
-            </Select>
+            />
           ) : (
             <p className="font-medium">{formation.name}</p>
           )}

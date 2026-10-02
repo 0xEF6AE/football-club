@@ -3,6 +3,7 @@
 /*
   디자인 토큰 — "경기장과 전광판"
   - chalk(배경) 위에 pitch(잔디 초록)를 주색으로, 전광판 amber를 점수/강조에만 쓴다.
+  - pitch는 채우는 색(버튼·칩 배경), pitch-ink는 배경 위 초록 글자·아이콘·테두리. 다크 모드에서 pitch 글자는 대비가 모자라다.
   - 색은 반드시 아래 토큰을 통해 쓰고, 컴포넌트에 임의의 hex를 넣지 않는다.
   - 테마: <html data-theme="light|dark">가 있으면 그걸 따르고, 없으면 OS 설정을 따른다.
     (다크 값이 두 곳에 있는 이유. 바꿀 때는 두 블록을 같이 고친다.)
@@ -19,6 +20,8 @@
   --pitch-deep: #0f3d26;
   --pitch-line: rgba(255, 255, 255, 0.82);
   --on-pitch: #ffffff;
+  /* 배경 위 초록 글자·아이콘. 라이트에서는 pitch와 같고, 다크에서는 읽히도록 밝힌다. */
+  --pitch-ink: #1b5e3b;
 
   --amber: #e8a21b;
   --amber-fg: #1a1200;
@@ -41,6 +44,7 @@
     --pitch: #1f6a43;
     --pitch-deep: #123f29;
     --pitch-line: rgba(255, 255, 255, 0.7);
+    --pitch-ink: #5fc08a;
 
     --amber: #f0b13a;
     --amber-fg: #1a1200;
@@ -63,6 +67,7 @@
   --pitch: #1f6a43;
   --pitch-deep: #123f29;
   --pitch-line: rgba(255, 255, 255, 0.7);
+  --pitch-ink: #5fc08a;
 
   --amber: #f0b13a;
   --amber-fg: #1a1200;
@@ -83,6 +88,7 @@
   --color-pitch: var(--pitch);
   --color-pitch-deep: var(--pitch-deep);
   --color-pitch-line: var(--pitch-line);
+  --color-pitch-ink: var(--pitch-ink);
   --color-on-pitch: var(--on-pitch);
   --color-amber: var(--amber);
   --color-amber-fg: var(--amber-fg);

@@ -7,7 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Check, Copy, CopyPlus, Eraser, Users, WandSparkles } from "lucide-react";
 import { Button, buttonStyles } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
-import { Select } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState } from "@/components/ui/States";
 import { useAdmin } from "@/features/admin/queries";
@@ -183,12 +183,12 @@ export function FormationBuilder({ players, initialFormation = null }: Formation
                 onClick={() => dispatch({ type: "setQuarter", index })}
                 className={cn(
                   "flex flex-col items-center rounded-md px-2 py-1.5 outline-none transition-colors",
-                  "focus-visible:ring-2 focus-visible:ring-pitch/40",
+                  "focus-visible:ring-2 focus-visible:ring-pitch-ink/40",
                   current ? "bg-surface text-fg shadow-sm" : "text-muted hover:text-fg",
                 )}
               >
                 <span className="font-display text-base leading-tight tracking-wide">{index + 1}Q</span>
-                <span className={cn("font-display text-[11px] leading-tight", filled === total ? "text-pitch" : "text-muted")}>
+                <span className={cn("font-display text-[11px] leading-tight", filled === total ? "text-pitch-ink" : "text-muted")}>
                   {filled}/{total}
                 </span>
               </button>
@@ -298,17 +298,16 @@ export function FormationBuilder({ players, initialFormation = null }: Formation
               <Select
                 aria-label="참석 투표에서 가져오기"
                 value=""
-                onChange={(e) => void importAttendance(e.target.value)}
+                placeholder="참석 투표에서 가져오기"
+                onChange={(matchId) => void importAttendance(matchId)}
                 disabled={importing}
+                options={upcoming.map((match) => ({
+                  value: match.id,
+                  label: `${match.opponent}전`,
+                  hint: formatMatchDate(match.playedAt),
+                }))}
                 className="sm:max-w-sm"
-              >
-                <option value="">참석 투표에서 가져오기</option>
-                {upcoming.map((match) => (
-                  <option key={match.id} value={match.id}>
-                    {formatMatchDate(match.playedAt)} {match.opponent}전
-                  </option>
-                ))}
-              </Select>
+              />
               {importNote && (
                 <p className="text-xs text-muted" role="status">
                   {importNote}
@@ -413,7 +412,7 @@ export function FormationBuilder({ players, initialFormation = null }: Formation
                   <span
                     className={cn(
                       "font-display text-xs",
-                      count === 0 ? "text-loss" : count < QUARTER_COUNT ? "text-muted" : "text-pitch",
+                      count === 0 ? "text-loss" : count < QUARTER_COUNT ? "text-muted" : "text-pitch-ink",
                     )}
                   >
                     {count}/{QUARTER_COUNT}

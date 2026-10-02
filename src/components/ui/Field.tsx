@@ -33,7 +33,13 @@ export function Field({ label, htmlFor, hint, error, optional, className, childr
   );
 }
 
+/**
+ * 입력칸·선택칸 공통 모양. 높이 44px(min-h-11)로 md 버튼과 나란히 맞는다.
+ * 올리면 테두리가 조금 진해지고, 포커스되면 잔디색 테두리 + 옅은 링.
+ */
 export const controlStyles =
-  "w-full rounded-md border border-line bg-surface px-3 py-2.5 text-base text-fg placeholder:text-muted/70 " +
-  "outline-none transition-[border-color,box-shadow] focus-visible:border-pitch focus-visible:ring-2 focus-visible:ring-pitch/30 " +
-  "disabled:cursor-not-allowed disabled:opacity-60 aria-invalid:border-danger aria-invalid:focus-visible:ring-danger/30";
+  "w-full min-h-11 rounded-lg border border-line bg-surface px-3 py-2 text-base text-fg placeholder:text-muted/70 " +
+  "outline-none transition-[border-color,box-shadow,background-color] duration-150 hover:border-muted/60 " +
+  "focus-visible:border-pitch-ink focus-visible:ring-3 focus-visible:ring-pitch-ink/15 " +
+  "disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-line " +
+  "aria-invalid:border-danger aria-invalid:focus-visible:ring-danger/20";

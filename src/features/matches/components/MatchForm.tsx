@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useId, useState } from "react";
 import { Plus, X } from "lucide-react";
-import { Button } from "@/components/ui/Button";
+import { Button, buttonStyles } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { Field } from "@/components/ui/Field";
-import { Input, Select, Textarea } from "@/components/ui/Input";
+import { Input, Textarea } from "@/components/ui/Input";
+import { Select, type SelectOption } from "@/components/ui/Select";
 import { InlineError } from "@/components/ui/States";
 import { useFormations } from "@/features/formations/queries";
 import { summarizeShapes } from "@/features/formations/schema";
@@ -18,8 +19,14 @@ import { isPlayed, matchInputSchema, type Match, type MatchInput } from "../sche
 
 type GoalDraft = { key: string; scorerId: string; assistId: string };
 
-/** 킥오프는 정각만 고른다: "00:00" ~ "23:00" */
-const KICKOFF_HOURS = Array.from({ length: 24 }, (_, hour) => `${String(hour).padStart(2, "0")}:00`);
+/** 킥오프는 정각만 고른다: 미정, "00:00" ~ "23:00" */
+const KICKOFF_OPTIONS: SelectOption[] = [
+  { value: "", label: "미정" },
+  ...Array.from({ length: 24 }, (_, hour) => {
+    const time = `${String(hour).padStart(2, "0")}:00`;
+    return { value: time, label: formatKickoffTime(time) };
+  }),
+];
 
 /** 경기 전날 21:00 (브라우저 로컬). 투표 마감의 흔한 기본값. */
 function eveningBefore(playedAt: string): string {
@@ -44,6 +51,7 @@ const newGoal = (): GoalDraft => ({ key: crypto.randomUUID(), scorerId: "", assi
 export function MatchForm({ initial, submitLabel, pending, onSubmit, cancelHref }: MatchFormProps) {
   const id = useId();
   const players = usePlayers();
+  const playerOptions: SelectOption[] = (players.data ?? []).map((player) => ({ value: player.id, label: player.name }));
   const formations = useFormations();
 
   const [hasResult, setHasResult] = useState(initial ? isPlayed(initial) : true);
@@ -102,7 +110,9 @@ export function MatchForm({ initial, submitLabel, pending, onSubmit, cancelHref 
     }
   };
 
-  const scoreInput = "font-display h-16 text-center text-4xl";
+  // 전광판 위 점수 칸: 비어 있으면 흐린 "-"(0과 헷갈리지 않게)를 보여 주고, 올리거나 누르면 amber 테두리.
+  const scoreInput =
+    "font-display h-16 text-center text-4xl border-transparent bg-on-pitch/10 placeholder:text-on-pitch/30 hover:border-on-pitch/25 focus-visible:border-amber focus-visible:ring-amber/30";
 
   return (
     <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-6">
@@ -137,16 +147,10 @@ export function MatchForm({ initial, submitLabel, pending, onSubmit, cancelHref 
           <Select
             id={`${id}-kickoff`}
             value={kickoffTime}
-            onChange={(e) => setKickoffTime(e.target.value)}
+            onChange={setKickoffTime}
             invalid={!!errors.kickoffTime}
-          >
-            <option value="">미정</option>
-            {KICKOFF_HOURS.map((time) => (
-              <option key={time} value={time}>
-                {formatKickoffTime(time)}
-              </option>
-            ))}
-          </Select>
+            options={KICKOFF_OPTIONS}
+          />
         </Field>
         <Field label="상대팀" htmlFor={`${id}-opponent`} error={errors.opponent} className="col-span-2 sm:col-span-1">
           <Input
@@ -179,10 +183,8 @@ export function MatchForm({ initial, submitLabel, pending, onSubmit, cancelHref 
               pattern="[0-9]*"
               value={ourScore}
               onChange={(e) => setOurScore(e.target.value.replace(/\D/g, "").slice(0, 2))}
-              className={cn(
-                scoreInput,
-                "border-transparent bg-on-pitch/10 text-amber focus-visible:border-amber focus-visible:ring-amber/30",
-              )}
+              placeholder="-"
+              className={cn(scoreInput, "text-amber")}
               invalid={!!errors.ourScore}
               aria-describedby={errors.ourScore ? `${id}-score-error` : undefined}
             />
@@ -195,10 +197,8 @@ export function MatchForm({ initial, submitLabel, pending, onSubmit, cancelHref 
               pattern="[0-9]*"
               value={theirScore}
               onChange={(e) => setTheirScore(e.target.value.replace(/\D/g, "").slice(0, 2))}
-              className={cn(
-                scoreInput,
-                "border-transparent bg-on-pitch/10 text-on-pitch focus-visible:border-amber focus-visible:ring-amber/30",
-              )}
+              placeholder="-"
+              className={cn(scoreInput, "text-on-pitch")}
               invalid={!!errors.theirScore}
               aria-describedby={errors.theirScore ? `${id}-score-error` : undefined}
             />
@@ -268,7 +268,7 @@ export function MatchForm({ initial, submitLabel, pending, onSubmit, cancelHref 
           {players.data && players.data.length === 0 && (
             <p className="text-sm text-muted">
               아직 등록된 선수가 없어요.{" "}
-              <Link href="/players" className="font-medium text-pitch underline underline-offset-2">
+              <Link href="/players" className="font-medium text-pitch-ink underline underline-offset-2">
                 선수를 먼저 등록
               </Link>
               하면 득점자를 고를 수 있어요.
@@ -283,29 +283,17 @@ export function MatchForm({ initial, submitLabel, pending, onSubmit, cancelHref 
                   <Select
                     aria-label={`${index + 1}번째 골 득점자`}
                     value={goal.scorerId}
-                    onChange={(e) => updateGoal(goal.key, { scorerId: e.target.value })}
+                    onChange={(scorerId) => updateGoal(goal.key, { scorerId })}
+                    options={[{ value: "", label: "득점자 미상" }, ...playerOptions]}
                     className="min-w-0 flex-1"
-                  >
-                    <option value="">득점자 미상</option>
-                    {players.data?.map((player) => (
-                      <option key={player.id} value={player.id}>
-                        {player.name}
-                      </option>
-                    ))}
-                  </Select>
+                  />
                   <Select
                     aria-label={`${index + 1}번째 골 도움`}
                     value={goal.assistId}
-                    onChange={(e) => updateGoal(goal.key, { assistId: e.target.value })}
+                    onChange={(assistId) => updateGoal(goal.key, { assistId })}
+                    options={[{ value: "", label: "도움 없음" }, ...playerOptions]}
                     className="min-w-0 flex-1"
-                  >
-                    <option value="">도움 없음</option>
-                    {players.data?.map((player) => (
-                      <option key={player.id} value={player.id}>
-                        {player.name}
-                      </option>
-                    ))}
-                  </Select>
+                  />
                   <Button
                     variant="ghost"
                     size="icon"
@@ -343,16 +331,17 @@ export function MatchForm({ initial, submitLabel, pending, onSubmit, cancelHref 
         <Select
           id={`${id}-formation`}
           value={formationId}
-          onChange={(e) => setFormationId(e.target.value)}
+          onChange={setFormationId}
           invalid={!!errors.formationId}
-        >
-          <option value="">없음</option>
-          {formations.data?.map((formation) => (
-            <option key={formation.id} value={formation.id}>
-              {formation.name} ({summarizeShapes(formation.quarters.map((q) => q.shape))})
-            </option>
-          ))}
-        </Select>
+          options={[
+            { value: "", label: "없음" },
+            ...(formations.data ?? []).map((formation) => ({
+              value: formation.id,
+              label: formation.name,
+              hint: summarizeShapes(formation.quarters.map((q) => q.shape)),
+            })),
+          ]}
+        />
       </Field>
 
       <Field label="메모" htmlFor={`${id}-memo`} error={errors.memo} optional>
@@ -371,7 +360,7 @@ export function MatchForm({ initial, submitLabel, pending, onSubmit, cancelHref 
       <div className="flex justify-end gap-2 border-t border-line pt-4">
         <Link
           href={cancelHref}
-          className="inline-flex h-10 items-center rounded-md px-4 text-[15px] font-medium text-muted hover:bg-surface-2"
+          className={buttonStyles({ variant: "ghost", className: "text-muted" })}
         >
           취소
         </Link>

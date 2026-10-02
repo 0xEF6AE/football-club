@@ -105,7 +105,7 @@ export function Leaderboard() {
                   <td className="py-3 font-medium">
                     <Link
                       href={`/players/${stat.playerId}`}
-                      className="rounded-sm underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-pitch/40"
+                      className="rounded-sm underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-pitch-ink/40"
                     >
                       {stat.name}
                     </Link>

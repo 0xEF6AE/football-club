@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { ChevronDown, Search, X } from "lucide-react";
+import { Check, ChevronDown, Search, X } from "lucide-react";
 import { controlStyles } from "@/components/ui/Field";
+import { optionStyles, placementFor, popoverStyles, type PopoverPlacement } from "@/components/ui/listbox";
 import { cn } from "@/lib/utils";
 import type { Player } from "../schema";
 import { searchByName } from "../search";
@@ -41,6 +42,7 @@ export function PlayerPicker({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
+  const [placement, setPlacement] = useState<PopoverPlacement>("bottom");
 
   const selected = players.find((p) => p.id === value);
   const results = useMemo(() => searchByName(players, query), [players, query]);
@@ -53,6 +55,7 @@ export function PlayerPicker({
   }, [active, open]);
 
   const openList = () => {
+    setPlacement(placementFor(inputRef.current));
     setQuery("");
     setActive(Math.max(0, results.findIndex((p) => p.id === value)));
     setOpen(true);
@@ -126,7 +129,7 @@ export function PlayerPicker({
           setOpen(true);
         }}
         onKeyDown={onKeyDown}
-        className={cn(controlStyles, "bg-surface pl-9 pr-9", selected && !open && "font-medium")}
+        className={cn(controlStyles, "pl-9 pr-10", selected && !open && "font-medium")}
       />
       {selected && !open ? (
         <button
@@ -136,7 +139,7 @@ export function PlayerPicker({
             onChange("");
             inputRef.current?.focus();
           }}
-          className="absolute right-1.5 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-md text-muted outline-none hover:text-fg focus-visible:ring-2 focus-visible:ring-pitch/40"
+          className="absolute right-1.5 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-lg text-muted outline-none transition-colors hover:bg-surface-2 hover:text-fg focus-visible:ring-2 focus-visible:ring-pitch-ink/40"
         >
           <X className="size-4" aria-hidden />
         </button>
@@ -155,10 +158,10 @@ export function PlayerPicker({
           aria-label={`${label} 목록`}
           // 항목을 누를 때 입력칸이 먼저 blur되어 목록이 닫히지 않게 한다.
           onMouseDown={(e) => e.preventDefault()}
-          className="absolute inset-x-0 top-full z-30 mt-1 max-h-64 overflow-auto overscroll-contain rounded-lg border border-muted/40 bg-surface py-1"
+          className={popoverStyles(placement)}
         >
           {results.length === 0 ? (
-            <li className="px-3 py-2.5 text-sm text-muted">
+            <li className="px-2.5 py-2.5 text-sm text-muted">
               &lsquo;{query.trim()}&rsquo;와(과) 맞는 이름이 없어요
             </li>
           ) : (
@@ -171,13 +174,10 @@ export function PlayerPicker({
                 aria-selected={player.id === value}
                 onClick={() => choose(player)}
                 onMouseMove={() => setActive(index)}
-                className={cn(
-                  "flex cursor-pointer items-center justify-between gap-3 px-3 py-2.5 text-[15px]",
-                  index === active && "bg-surface-2",
-                  player.id === value && "font-semibold text-pitch",
-                )}
+                className={optionStyles({ active: index === active, selected: player.id === value })}
               >
-                <span className="truncate">{player.name}</span>
+                <Check aria-hidden className={cn("size-4 shrink-0 text-pitch-ink", player.id !== value && "invisible")} />
+                <span className="min-w-0 flex-1 truncate">{player.name}</span>
                 {describe && <span className="shrink-0 text-xs font-normal text-muted">{describe(player)}</span>}
               </li>
             ))

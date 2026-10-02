@@ -36,7 +36,7 @@ export function AdminMenu() {
     return (
       <>
         <Button variant="ghost" size="sm" onClick={() => setOpen(true)} aria-label="관리자 모드 켜짐. 누르면 끌 수 있어요">
-          <LockOpen className="size-4 text-pitch" aria-hidden />
+          <LockOpen className="size-4 text-pitch-ink" aria-hidden />
           <span className="hidden sm:inline">관리자</span>
         </Button>
         <ConfirmDialog

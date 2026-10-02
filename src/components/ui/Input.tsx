@@ -1,4 +1,3 @@
-import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { controlStyles } from "./Field";
 
@@ -17,22 +16,5 @@ export function Textarea({ className, invalid, ...props }: TextareaProps) {
       aria-invalid={invalid || undefined}
       {...props}
     />
-  );
-}
-
-type SelectProps = React.ComponentPropsWithRef<"select"> & { invalid?: boolean };
-
-/** className은 바깥 래퍼(폭 지정용)에 붙는다. 화살표는 아이콘이라 다크 모드에서도 색이 맞는다. */
-export function Select({ className, invalid, children, ...props }: SelectProps) {
-  return (
-    <span className={cn("relative block", className)}>
-      <select className={cn(controlStyles, "appearance-none pr-9")} aria-invalid={invalid || undefined} {...props}>
-        {children}
-      </select>
-      <ChevronDown
-        aria-hidden
-        className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted"
-      />
-    </span>
   );
 }

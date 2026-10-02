@@ -31,7 +31,7 @@ export function Dialog({ open, title, description, onClose, children }: DialogPr
         // 안쪽 내용은 div가 감싸고 있어서, dialog 자체가 타깃이면 배경을 누른 것이다.
         if (event.target === event.currentTarget) onClose();
       }}
-      className="m-auto w-[calc(100%-2rem)] max-w-sm rounded-xl border border-line bg-surface p-0 text-fg shadow-2xl backdrop:bg-black/50"
+      className="m-auto w-[calc(100%-2rem)] max-w-sm rounded-2xl border border-line bg-surface p-0 text-fg shadow-2xl backdrop:bg-black/50 backdrop:backdrop-blur-[2px] transition-[opacity,scale] duration-200 ease-out starting:open:scale-95 starting:open:opacity-0"
     >
       <div className="p-5">
         <h2 id={titleId} className="text-lg font-semibold">

@@ -17,7 +17,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4">
           <Link
             href="/"
-            className="flex min-w-0 items-center gap-2.5 rounded-md font-semibold tracking-tight outline-none focus-visible:ring-2 focus-visible:ring-pitch/40"
+            className="flex min-w-0 items-center gap-2.5 rounded-md font-semibold tracking-tight outline-none focus-visible:ring-2 focus-visible:ring-pitch-ink/40"
           >
             {/* 모임 엠블럼. 링 바깥이 투명한 원형 PNG라 라이트·다크 어디서나 그대로 얹힌다 */}
             <Image

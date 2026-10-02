@@ -73,9 +73,12 @@ scripts/make-icons.mjs  엠블럼 PNG 하나로 public/logo.png, src/app/icon.pn
 ## 디자인
 
 컨셉은 "경기장과 전광판". 색은 `globals.css`의 토큰만 쓴다 (`bg-pitch`, `text-amber`, `border-line`…). 임의 hex 금지.
+- `pitch`는 채우는 색(버튼·칩 배경), `pitch-ink`는 배경 위 초록 글자·아이콘·포커스 테두리. 다크 모드에서 `text-pitch`는 대비가 모자라므로 글자에는 `text-pitch-ink`를 쓴다.
+- **선택칸은 `components/ui/Select.tsx`** (네이티브 `<select>` 쓰지 않음, `options` 배열을 넘긴다). 떠 있는 목록 모양과 위아래 위치는 `components/ui/listbox.ts`를 Select와 PlayerPicker가 같이 쓴다.
+- 높이: 입력칸·선택칸·md 버튼 44px, sm 버튼·sm 칩 36px. 버튼과 칩은 누르면 살짝 눌린다(`active:scale`), 채운 버튼은 윗면에 1px 빛.
 - 잔디색(`pitch`) = 기본 동작 색. amber = 전광판 숫자와 화면당 하나의 핵심 버튼(`variant="accent"`)에만.
 - 숫자·점수·포지션 약어는 `font-display`(Oswald). 한글 본문에는 쓰지 않는다.
-- 카드 남발 대신 `divide-y divide-line` 목록. 그림자는 어두운 전광판 패널에만.
+- 카드 남발 대신 `divide-y divide-line` 목록. 그림자는 어두운 전광판 패널과 떠 있는 층(선택 목록, 대화상자)에만.
 - **움직임은 두 곳만.** 첫 화면 `/`의 킥오프 스플래시(`components/layout/Splash.tsx`, AppShell에 있음. 처음 접속뿐 아니라 헤더 로고로 `/`에 올 때마다 처음부터 다시 돈다. 연출 중 `/matches`로 넘어가고 경기 화면이 준비되면 갈라진다. 누르면 건너뜀)와 그 뒤 전광판 점등(`SeasonBoard`, 페이지 로드당 한 번). 표시 여부는 `lib/splash.ts`의 인라인 스크립트가 첫 페인트 전에 `<html data-splash="off">`로 정한다. 홈 화면 앱(PWA)은 `/`에서 시작한다. 동작 줄이기 설정이면 둘 다 없다. 다른 곳에 입장 애니메이션을 흩뿌리지 않는다.
 - 모바일 우선. 하단 탭(모바일)/상단 메뉴(데스크톱)는 `components/layout/Nav.tsx`.
 - 문구는 반말 아닌 해요체, 능동태. 버튼은 일어나는 일을 그대로 ("기록 저장", "남기기").

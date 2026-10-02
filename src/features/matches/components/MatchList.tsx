@@ -94,7 +94,7 @@ function UpcomingRow({ match }: { match: Match }) {
         <span
           className={cn(
             "shrink-0 rounded-full px-2.5 py-1 text-xs font-medium",
-            overdue || closed ? "bg-surface-2 text-muted" : "bg-pitch/10 text-pitch",
+            overdue || closed ? "bg-surface-2 text-muted" : "bg-pitch/10 text-pitch-ink",
           )}
         >
           {overdue ? "결과 입력 대기" : closed ? "투표 마감" : "참석 투표"}

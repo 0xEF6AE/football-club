@@ -171,7 +171,7 @@ function MatchFormationPanel({ formation }: { formation: MatchFormationRef }) {
         </h2>
         <Link
           href={`/formation?load=${formation.id}`}
-          className={buttonStyles({ variant: "ghost", size: "sm", className: "text-pitch" })}
+          className={buttonStyles({ variant: "ghost", size: "sm", className: "text-pitch-ink" })}
         >
           <AdminOnly fallback="라인업 크게 보기">빌더에서 열기</AdminOnly>
         </Link>
@@ -250,7 +250,7 @@ export function MatchDetail({ id }: { id: string }) {
           <ChevronLeft className="size-4" aria-hidden />
           경기 목록
         </Link>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           <Button
             variant="secondary"
             size="sm"
@@ -259,14 +259,27 @@ export function MatchDetail({ id }: { id: string }) {
             {copied ? <Check className="size-4" aria-hidden /> : <Copy className="size-4" aria-hidden />}
             {copied ? "복사했어요" : "카톡용 복사"}
           </Button>
+          {/* 좁은 화면에서는 관리자 버튼을 아이콘만 남겨 한 줄에 들어가게 한다 */}
           <AdminOnly>
-            <Link href={`/matches/${id}/edit`} className={buttonStyles({ variant: "secondary", size: "sm" })}>
+            <Link
+              href={`/matches/${id}/edit`}
+              aria-label={played ? "수정" : "결과 입력"}
+              title={played ? "수정" : "결과 입력"}
+              className={buttonStyles({ variant: "secondary", size: "sm", className: "w-9 px-0 sm:w-auto sm:px-3" })}
+            >
               <Pencil className="size-4" aria-hidden />
-              {played ? "수정" : "결과 입력"}
+              <span className="hidden sm:inline">{played ? "수정" : "결과 입력"}</span>
             </Link>
-            <Button variant="danger" size="sm" onClick={() => setConfirming(true)}>
+            <Button
+              variant="danger"
+              size="sm"
+              aria-label="삭제"
+              title="삭제"
+              className="w-9 px-0 sm:w-auto sm:px-3"
+              onClick={() => setConfirming(true)}
+            >
               <Trash className="size-4" aria-hidden />
-              삭제
+              <span className="hidden sm:inline">삭제</span>
             </Button>
           </AdminOnly>
         </div>

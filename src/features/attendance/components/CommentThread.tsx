@@ -15,7 +15,7 @@ import { useAddComment, useComments, useRemoveComment } from "../queries";
 import { ATTENDANCE_LABEL, commentInputSchema, type AttendanceStatus, type MatchComment } from "../schema";
 
 const STATUS_PILL: Record<AttendanceStatus, string> = {
-  yes: "bg-pitch/10 text-pitch",
+  yes: "bg-pitch/10 text-pitch-ink",
   no: "bg-surface-2 text-muted",
   maybe: "bg-amber/20 text-fg",
 };

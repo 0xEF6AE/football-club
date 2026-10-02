@@ -9,7 +9,7 @@ export default function HomePage() {
   return (
     <noscript>
       <p className="py-10 text-center">
-        <Link href="/matches" className="font-medium text-pitch underline underline-offset-2">
+        <Link href="/matches" className="font-medium text-pitch-ink underline underline-offset-2">
           {CLUB_NAME} 경기 목록 보기
         </Link>
       </p>
