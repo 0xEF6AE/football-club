@@ -20,6 +20,7 @@ const match = (playedAt: string, goals: MatchGoal[], played = true): Match => ({
   location: null,
   memo: null,
   voteDeadline: null,
+  lateJoinDeadline: null,
   formationId: null,
   formation: null,
   cancelled: false,

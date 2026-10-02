@@ -15,6 +15,7 @@ import {
   effectiveVoteDeadline,
   isPlayed,
   isVoteClosed,
+  lateJoinCloseAt,
   resultDueAt,
   type Match,
 } from "@/features/matches/schema";
@@ -29,6 +30,7 @@ import { ATTENDANCE_LABEL, ATTENDANCE_STATUSES, ATTENDANCE_TONE, type Attendance
 import { CommentThread, type PinCredential } from "./CommentThread";
 import { GuestSection } from "./GuestSection";
 import { QuarterPicker } from "./QuarterPicker";
+import { SecondCallPanel } from "./SecondCallPanel";
 
 function readMe(): string {
   const stored = readStorage(STORAGE_KEYS.me);
@@ -93,7 +95,8 @@ export function AttendanceSection({ match }: { match: Match }) {
   const [savedPins, setSavedPins] = useState(readPins);
   const [pinDraft, setPinDraft] = useState("");
   const deadline = effectiveVoteDeadline(match);
-  useTickAt([new Date(deadline).getTime(), resultDueAt(match)]);
+  const lateCloseAt = lateJoinCloseAt(match);
+  useTickAt([new Date(deadline).getTime(), lateCloseAt, resultDueAt(match)]);
 
   if (players.isPending || attendance.isPending) return <ListSkeleton rows={2} />;
 
@@ -196,7 +199,7 @@ export function AttendanceSection({ match }: { match: Match }) {
         : lateWindow
           ? myStatus === "yes"
             ? "마감됐어요. 늦거나 일찍 가면 뛸 수 있는 쿼터만 바꿀 수 있어요."
-            : "마감됐지만 그래도 올 수 있으면 '늦게라도 참석'을 눌러 주세요. 못 오면 댓글로 알려 주세요."
+            : `마감됐지만 그래도 올 수 있으면 ${formatDateTime(new Date(lateCloseAt).toISOString())}까지 '늦게라도 참석'을 눌러 주세요.`
           : closed
             ? "투표가 마감돼 응답을 바꿀 수 없어요. 사정이 생겼으면 아래 댓글로 알려 주세요."
             : "응답은 모임원 모두에게 보이고, 마감 전까지 바꿀 수 있어요.";
@@ -228,7 +231,7 @@ export function AttendanceSection({ match }: { match: Match }) {
             {closed ? (
               <span>
                 <time dateTime={deadline}>{deadlineText}</time>에 마감됐어요
-                {lateWindow && " · 늦은 참석만 받아요"}
+                {lateWindow && ` · 추가 참석은 ${formatDateTime(new Date(lateCloseAt).toISOString())}까지 받아요`}
               </span>
             ) : (
               <span>
@@ -371,6 +374,18 @@ export function AttendanceSection({ match }: { match: Match }) {
       )}
 
       <GuestSection matchId={matchId} guests={guestList} canEdit={isAdmin && !match.cancelled} />
+
+      {/* 주장: 투표가 마감된 뒤 보류·불참·미투표에게 다시 묻기 */}
+      {isAdmin && closed && !played && !match.cancelled && (
+        <SecondCallPanel
+          match={match}
+          maybe={rowsBy("maybe").map((r) => nameOf.get(r.playerId)!)}
+          no={rowsBy("no").map((r) => nameOf.get(r.playerId)!)}
+          none={noResponse}
+          attending={yesRows.length}
+          guests={guestList.length}
+        />
+      )}
 
       {noResponse.length > 0 && attendance.data.length > 0 && !played && !match.cancelled && (
         <p className="text-xs leading-relaxed text-muted">

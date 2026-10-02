@@ -86,6 +86,8 @@ export type Match = {
   location: string | null;
   memo: string | null;
   voteDeadline: string | null;
+  /** 추가 모집 마감. null이면 킥오프 2시간 뒤까지 "늦게라도 참석"을 받는다. */
+  lateJoinDeadline: string | null;
   formationId: string | null;
   formation: MatchFormationRef | null;
   /** 우천·인원 부족 등으로 취소된 경기 */
@@ -130,6 +132,7 @@ export function resultDueAt(match: Pick<Match, "playedAt" | "kickoffTime">): num
 /** 참석 투표가 마감됐는지. 마감 시각이 없으면 계속 열려 있다. 클라이언트와 서버가 같은 판정을 쓴다. */
 type VoteTarget = Pick<Match, "playedAt" | "kickoffTime" | "voteDeadline" | "ourScore" | "theirScore"> & {
   cancelled?: boolean;
+  lateJoinDeadline?: string | null;
 };
 
 const DAY_MS = 24 * 3_600_000;
@@ -169,8 +172,24 @@ export function isVoteClosed(match: VoteTarget, now: Date = new Date()): boolean
  */
 export function canJoinLate(match: VoteTarget, now: Date = new Date()): boolean {
   if (match.cancelled || isPlayed(match)) return false;
-  return isVoteClosed(match, now) && !isAwaitingResult(match, now);
+  return isVoteClosed(match, now) && now.getTime() < lateJoinCloseAt(match);
 }
+
+/**
+ * "늦게라도 참석"이 닫히는 시각(ms). 주장이 추가 모집 마감을 정했으면 그때, 아니면 킥오프 2시간 뒤.
+ * 정한 시각이 킥오프 2시간 뒤보다 늦어도 킥오프 2시간 뒤에는 닫는다.
+ */
+export function lateJoinCloseAt(match: Pick<Match, "playedAt" | "kickoffTime"> & { lateJoinDeadline?: string | null }): number {
+  const due = resultDueAt(match);
+  if (!match.lateJoinDeadline) return due;
+  const set = new Date(match.lateJoinDeadline).getTime();
+  return Number.isNaN(set) ? due : Math.min(set, due);
+}
+
+/** 추가 모집 마감 정하기(관리자). null이면 기본(킥오프 2시간 뒤)으로 */
+export const lateJoinInputSchema = z.object({
+  deadline: z.iso.datetime({ message: "마감 시각을 확인해 주세요" }).nullable(),
+});
 
 export type MatchResult = "win" | "draw" | "loss";
 

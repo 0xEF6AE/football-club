@@ -62,8 +62,13 @@ export const matches = sqliteTable(
     theirScore: integer("their_score"),
     location: text("location"),
     memo: text("memo"),
-    /** 참석 투표 마감 시각(ISO). null이면 마감 없이 계속 받는다. 마감 뒤에는 응답을 바꿀 수 없다. */
+    /** 참석 투표 마감 시각(ISO). null이면 킥오프 시각(미정이면 경기 당일 0시)에 마감. */
     voteDeadline: text("vote_deadline"),
+    /**
+     * 추가 모집 마감(ISO). 투표 마감 뒤 주장이 보류·불참·미투표에게 다시 물을 때, 언제까지 "늦게라도 참석"을 받을지.
+     * null이면 킥오프 2시간 뒤까지.
+     */
+    lateJoinDeadline: text("late_join_deadline"),
     /** 그날 사용한(저장된) 포메이션. 포메이션이 지워지면 null. */
     formationId: text("formation_id").references(() => formations.id, { onDelete: "set null" }),
     /** 우천·인원 부족 등으로 취소된 경기. null/false = 아님. 결과를 입력하면 풀린다. */

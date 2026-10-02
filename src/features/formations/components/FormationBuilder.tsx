@@ -124,6 +124,8 @@ export function FormationBuilder({ players, initialFormation = null }: Formation
   const matches = useMatches();
   const { copied, copy } = useCopy();
   const [importNote, setImportNote] = useState<string | null>(null);
+  /** 마지막으로 가져온 경기의 투표 상태 (보류·불참·미투표·마감 후). 주장이 누구를 더 넣을지 보는 용도 */
+  const [voteTags, setVoteTags] = useState<Record<string, string>>({});
   const [importing, setImporting] = useState(false);
 
   // 작업 중 라인업을 이 기기에 남겨 두어 새로고침해도 사라지지 않게 한다.
@@ -178,6 +180,15 @@ export function FormationBuilder({ players, initialFormation = null }: Formation
         queryClient.fetchQuery({ queryKey: attendanceKeys.guests(matchId), queryFn: () => attendanceApi.guests(matchId) }),
       ]);
       const yes = list.filter((a) => a.status === "yes" && validPlayerIds.has(a.playerId));
+      const rowOf = new Map(list.map((a) => [a.playerId, a]));
+      const tags: Record<string, string> = {};
+      for (const player of players) {
+        const row = rowOf.get(player.id);
+        const tag = !row ? "미투표" : row.status === "no" ? "불참" : row.status === "maybe" ? "보류" : row.lateJoin ? "마감 후" : "";
+        if (tag) tags[player.id] = tag;
+      }
+      setVoteTags(tags);
+      const lateCount = yes.filter((a) => a.lateJoin).length;
       const availability: PlayerAvailability = {};
       for (const row of yes) if (row.quarters) availability[row.playerId] = row.quarters;
       for (const guest of guests) if (guest.quarters) availability[guest.id] = guest.quarters;
@@ -190,6 +201,7 @@ export function FormationBuilder({ players, initialFormation = null }: Formation
       const limited = Object.keys(availability).length;
       setImportNote(
         `${formatMatchDate(match.playedAt)} ${match.opponent}전 참석 ${yes.length}명` +
+          (lateCount > 0 ? `(마감 후 ${lateCount}명 포함)` : "") +
           (guests.length > 0 ? `, 용병 ${guests.length}명` : "") +
           "을 가져왔어요." +
           (limited > 0 ? ` 늦참·조퇴 ${limited}명은 뛸 수 있는 쿼터에만 배치해요.` : ""),
@@ -349,7 +361,7 @@ export function FormationBuilder({ players, initialFormation = null }: Formation
               />
               {importNote && (
                 <p className="text-xs text-muted" role="status">
-                  {importNote}
+                  {importNote} 보류·불참·미투표인데 온 사람은 이름을 눌러 넣으면 돼요.
                 </p>
               )}
             </div>
@@ -368,6 +380,7 @@ export function FormationBuilder({ players, initialFormation = null }: Formation
                 {isGuestId(player.id) && <span className="text-xs opacity-80">용병</span>}
                 <span className="font-display text-xs opacity-70">{player.positions[0]}</span>
                 {availabilityTag(player.id) && <span className="text-xs opacity-80">{availabilityTag(player.id)}</span>}
+                {voteTags[player.id] && <span className="text-xs opacity-80">{voteTags[player.id]}</span>}
               </Chip>
             ))}
           </div>

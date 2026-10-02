@@ -145,3 +145,9 @@ export async function setMatchCancelled(id: string, cancelled: boolean, reason: 
     .returning({ id: matches.id });
   return rows.length > 0 ? getMatch(id) : null;
 }
+
+/** 추가 모집 마감(늦게라도 참석을 받는 마지막 시각) 정하기. null이면 기본(킥오프 2시간 뒤). */
+export async function setLateJoinDeadline(id: string, deadline: string | null): Promise<Match | null> {
+  const rows = await db.update(matches).set({ lateJoinDeadline: deadline }).where(eq(matches.id, id)).returning({ id: matches.id });
+  return rows.length > 0 ? getMatch(id) : null;
+}

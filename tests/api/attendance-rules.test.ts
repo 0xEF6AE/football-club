@@ -3,6 +3,7 @@ import * as attendanceRoute from "@/app/api/matches/[id]/attendance/route";
 import * as cancelRoute from "@/app/api/matches/[id]/cancel/route";
 import * as guestRoute from "@/app/api/matches/[id]/guests/[guestId]/route";
 import * as guestsRoute from "@/app/api/matches/[id]/guests/route";
+import * as lateJoinRoute from "@/app/api/matches/[id]/late-join/route";
 import * as matchRoute from "@/app/api/matches/[id]/route";
 import * as matchesRoute from "@/app/api/matches/route";
 import * as formationsRoute from "@/app/api/formations/route";
@@ -75,6 +76,33 @@ describe("참석 투표 마감", () => {
     expect((await all.json()).quarters).toBeNull();
     const no = await vote(match.id, { playerId: player.id, status: "no", quarters: [0], pin: "6666" });
     expect((await no.json()).quarters).toBeNull();
+  });
+});
+
+describe("추가 모집 (마감 뒤 다시 묻기)", () => {
+  const setLate = (matchId: string, deadline: string | null) =>
+    lateJoinRoute.PUT(
+      request("PUT", `/api/matches/${matchId}/late-join`, { body: { deadline }, headers: adminHeaders() }),
+      context({ id: matchId }),
+    );
+
+  it("주장이 정한 추가 모집 마감까지만 '늦게라도 참석'을 받는다", async () => {
+    const match = await seedUpcomingMatch({ ...kickoffInHours(10), voteDeadline: hoursFromNow(-2) });
+    const first = await seedPlayer("1차응답");
+    const second = await seedPlayer("2차응답");
+    expect((await setLate(match.id, hoursFromNow(1))).status).toBe(200);
+    expect((await vote(match.id, { playerId: first.id, status: "yes", pin: "8888" })).status).toBe(200);
+
+    expect((await setLate(match.id, hoursFromNow(-1) )).status).toBe(200); // 지난 시각(투표 마감 뒤)으로 바꿔 닫는다
+    expect((await vote(match.id, { playerId: second.id, status: "yes", pin: "9999" })).status).toBe(403);
+  });
+
+  it("추가 모집 마감은 투표 마감 뒤, 킥오프 2시간 뒤 전이어야 한다", async () => {
+    const match = await seedUpcomingMatch({ ...kickoffInHours(10), voteDeadline: hoursFromNow(-2) });
+    expect((await setLate(match.id, hoursFromNow(-3))).status).toBe(400); // 투표 마감보다 앞
+    expect((await setLate(match.id, hoursFromNow(13))).status).toBe(400); // 킥오프 2시간 뒤보다 뒤
+    const reset = await setLate(match.id, null);
+    expect(await reset.json()).toMatchObject({ lateJoinDeadline: null });
   });
 });
 

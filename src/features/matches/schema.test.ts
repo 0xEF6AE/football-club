@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   canJoinLate,
   effectiveVoteDeadline,
+  lateJoinCloseAt,
   getMatchResult,
   isAwaitingResult,
   isPlayed,
@@ -23,6 +24,7 @@ const match = (overrides: Partial<Match>): Match => ({
   location: null,
   memo: null,
   voteDeadline: null,
+  lateJoinDeadline: null,
   formationId: null,
   formation: null,
   cancelled: false,
@@ -76,6 +78,14 @@ describe("참석 투표 마감", () => {
     expect(canJoinLate(m, new Date("2026-10-04T08:59:00+09:00"))).toBe(true);
     expect(canJoinLate(m, new Date("2026-10-04T09:00:00+09:00"))).toBe(false); // 결과 입력 대기
     expect(canJoinLate({ ...m, cancelled: true }, new Date("2026-10-03T21:30:00+09:00"))).toBe(false);
+  });
+
+  it("주장이 추가 모집 마감을 정하면 그때 닫히고, 킥오프 2시간 뒤보다 늦게는 못 연다", () => {
+    const m = next({ voteDeadline: "2026-10-03T12:00:00.000Z", lateJoinDeadline: "2026-10-03T13:00:00.000Z" }); // 전날 22:00
+    expect(canJoinLate(m, new Date("2026-10-03T21:59:00+09:00"))).toBe(true);
+    expect(canJoinLate(m, new Date("2026-10-03T22:00:00+09:00"))).toBe(false);
+    const tooLate = next({ voteDeadline: "2026-10-03T12:00:00.000Z", lateJoinDeadline: "2026-10-05T00:00:00.000Z" });
+    expect(lateJoinCloseAt(tooLate)).toBe(new Date("2026-10-04T09:00:00+09:00").getTime());
   });
 });
 

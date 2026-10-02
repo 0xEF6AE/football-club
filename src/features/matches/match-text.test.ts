@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatMatchText } from "./match-text";
+import { formatMatchText, formatSecondCallText } from "./match-text";
 import type { Match } from "./schema";
 
 const upcoming: Match = {
@@ -12,6 +12,7 @@ const upcoming: Match = {
   location: "난지 축구장",
   memo: null,
   voteDeadline: null,
+  lateJoinDeadline: null,
   formationId: null,
   formation: null,
   cancelled: false,
@@ -57,6 +58,22 @@ describe("formatMatchText", () => {
       "뽀잉 fc 2 : 1 망원 FC (승)",
       "득점: 장상준 (도움 한승우), 미상",
       "장소: 난지 축구장",
+    ]);
+  });
+});
+
+describe("formatSecondCallText", () => {
+  it("보류·불참·미투표 명단과 추가 모집 마감, 지금 참석 수를 적는다 (빈 그룹은 뺀다)", () => {
+    const match = { ...upcoming, voteDeadline: "2026-10-03T12:00:00.000Z", lateJoinDeadline: "2026-10-03T13:00:00.000Z" };
+    const text = formatSecondCallText(match, { maybe: ["김민수"], no: [], none: ["강태양", "신재원"], attending: 15, guests: 2 }, "https://x/m1");
+    expect(text.split("\n")).toEqual([
+      "[10월 4일 (일) 오전 7시 망원 FC전 추가 참석 확인]",
+      "투표는 마감됐어요. 아래 분들 중 올 수 있는 분은 링크에서 '늦게라도 참석'을 눌러 주세요.",
+      "10월 3일 (토) 22:00까지 받아요.",
+      "보류: 김민수",
+      "미투표: 강태양, 신재원",
+      "지금 참석 15명 + 용병 2명",
+      "https://x/m1",
     ]);
   });
 });

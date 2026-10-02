@@ -66,3 +66,14 @@ export function useCancelMatch() {
     },
   });
 }
+
+export function useSetLateJoinDeadline() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: matchesApi.setLateJoinDeadline,
+    onSuccess: (match) => {
+      queryClient.setQueryData(matchKeys.detail(match.id), match);
+      return queryClient.invalidateQueries({ queryKey: matchKeys.list() });
+    },
+  });
+}

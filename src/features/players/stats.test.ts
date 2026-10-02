@@ -24,6 +24,7 @@ const match = (id: string, ourScore: number | null, theirScore: number | null, g
   location: null,
   memo: null,
   voteDeadline: null,
+  lateJoinDeadline: null,
   formationId: null,
   formation: null,
   cancelled: false,
